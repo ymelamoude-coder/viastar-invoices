@@ -48,17 +48,33 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Dados incompletos." }) };
       }
 
-      const formattedItems = items.map(item => ({
-        product: {
-          name: item.name + "\nMeasurements: " + item.measurements +
-                "\nShape: " + item.shape +
-                "\nColor: " + item.color +
-                "\nFinishing: " + item.finishing +
-                "\nSKU: " + item.sku
-        },
-        quantity: item.quantity,
-        unitAmount: item.price
-      }));
+      // First create/find products in Wave, then build invoice items
+      const formattedItems = [];
+      for (const item of items) {
+        const productName = item.name + "\nMeasurements: " + item.measurements +
+              "\nShape: " + item.shape +
+              "\nColor: " + item.color +
+              "\nFinishing: " + item.finishing +
+              "\nSKU: " + item.sku;
+
+        // Create product in Wave to get productId
+        const prodData = await gql(`mutation($input: ProductCreateInput!) {
+          productCreate(input: $input) {
+            product { id }
+            didSucceed
+            inputErrors { message }
+          }
+        }`, { input: { businessId: BUSINESS_ID, name: productName } });
+
+        const productId = prodData?.data?.productCreate?.product?.id;
+        if (!productId) continue;
+
+        formattedItems.push({
+          productId,
+          quantity: item.quantity,
+          unitPrice: item.price
+        });
+      }
 
       if (docType === "estimate") {
         const data = await gql(`mutation {
