@@ -64,7 +64,7 @@ exports.handler = async (event) => {
             didSucceed
             inputErrors { message }
           }
-        }`, { input: { businessId: BUSINESS_ID, name: productName, unitPrice: parseFloat(item.price), unitPriceCurrency: "USD" } });
+        }`, { input: { businessId: BUSINESS_ID, name: productName } });
 
         const productId = prodData?.data?.productCreate?.product?.id;
         if (!productId) {
