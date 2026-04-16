@@ -229,14 +229,33 @@ function removeItem(n) { if(document.querySelectorAll('.item-block').length>1){d
 function updateTotal() { let t=0; document.querySelectorAll('.item-block').forEach(b=>{const id=b.id.replace('item-','');t+=(parseFloat(document.getElementById('qty-'+id)?.value)||0)*(parseFloat(document.getElementById('price-'+id)?.value)||0);}); document.getElementById('totalAmount').textContent='$'+t.toFixed(2); }
 
 function getMeasurements(id) {
-  const ft1=document.getElementById('mft1-'+id)?.value||'0', in1=document.getElementById('min1-'+id)?.value||'0';
-  const ft2=document.getElementById('mft2-'+id)?.value||'0', in2=document.getElementById('min2-'+id)?.value||'0';
-  return `${ft1}ft ${in1}in × ${ft2}ft ${in2}in`;
+  const ft1=parseInt(document.getElementById('mft1-'+id)?.value)||0;
+  const in1=parseInt(document.getElementById('min1-'+id)?.value)||0;
+  const ft2=parseInt(document.getElementById('mft2-'+id)?.value)||0;
+  const in2=parseInt(document.getElementById('min2-'+id)?.value)||0;
+  const size=document.getElementById('size-'+id)?.value;
+  const isCustom = size === 'Custom Size';
+  if (isCustom) {
+    const w = ft1 + "ft" + (in1 > 0 ? " " + in1 + "in" : "");
+    const l = ft2 + "ft" + (in2 > 0 ? " " + in2 + "in" : "");
+    return w + " × " + l;
+  } else {
+    // Standard — extract from size string e.g. "9'x12'" → "9ft × 12ft"
+    if (size && !size.startsWith('Round')) {
+      const parts = size.replace(/['"]/g,'').split('x');
+      return parts[0].trim() + "ft × " + parts[1]?.trim() + "ft";
+    } else if (size && size.startsWith('Round')) {
+      const r = size.replace('Round ','').replace(/'/g,'');
+      return "Round " + r + "ft";
+    }
+    return ft1 + "ft × " + ft2 + "ft";
+  }
 }
 
 async function submitDoc() {
   const btn=document.getElementById('submitBtn'), status=document.getElementById('statusMsg'), bar=document.getElementById('loadingBar');
-  const customerId=document.getElementById('customerSelect').value;
+  const customerSel=document.getElementById('customerSelect');
+  const customerId=customerSel.value;
   if (!customerId) { showStatus('Selecione um cliente.','error'); return; }
 
   const items=[]; let valid=true;
