@@ -52,11 +52,14 @@ exports.handler = async (event) => {
       const formattedItems = [];
       for (const item of items) {
         const productName = item.name;
-        const description = "Measurements: " + item.measurements +
-              " | Shape: " + item.shape +
-              " | Color: " + item.color +
-              " | Finishing: " + item.finishing +
-              " | SKU: " + item.sku;
+        // Build description lines
+        const lines = [];
+        if (item.measurements) lines.push("Measurements: " + item.measurements);
+        if (item.shape && item.shape !== "Rectangular") lines.push("Shape: " + item.shape);
+        if (item.color) lines.push("Color: " + item.color);
+        if (item.finishing) lines.push("Finishing: " + item.finishing);
+        if (item.sku) lines.push("SKU: " + item.sku);
+        const description = lines.join("\n");
 
         // Search for existing product
         const searchData = await gql(`query {
