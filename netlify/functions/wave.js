@@ -67,7 +67,9 @@ exports.handler = async (event) => {
         }`, { input: { businessId: BUSINESS_ID, name: productName, unitPrice: parseFloat(item.price), unitPriceCurrency: "USD" } });
 
         const productId = prodData?.data?.productCreate?.product?.id;
-        if (!productId) continue;
+        if (!productId) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: "Falha ao criar produto", debug: JSON.stringify(prodData) }) };
+        }
 
         formattedItems.push({
           productId,
