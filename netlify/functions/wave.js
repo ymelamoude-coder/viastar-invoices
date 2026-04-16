@@ -64,7 +64,7 @@ exports.handler = async (event) => {
             didSucceed
             inputErrors { message }
           }
-        }`, { input: { businessId: BUSINESS_ID, name: productName } });
+        }`, { input: { businessId: BUSINESS_ID, name: productName, unitPrice: parseFloat(item.price).toFixed(2) } });
 
         const productId = prodData?.data?.productCreate?.product?.id;
         if (!productId) {
