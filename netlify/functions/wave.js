@@ -48,34 +48,38 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Dados incompletos." }) };
       }
 
-      // First create/find products in Wave, then build invoice items
+      // Find existing products in Wave by name
       const formattedItems = [];
       for (const item of items) {
-        const productName = item.name + "\nMeasurements: " + item.measurements +
-              "\nShape: " + item.shape +
-              "\nColor: " + item.color +
-              "\nFinishing: " + item.finishing +
-              "\nSKU: " + item.sku;
+        const productName = item.name;
+        const description = "Measurements: " + item.measurements +
+              " | Shape: " + item.shape +
+              " | Color: " + item.color +
+              " | Finishing: " + item.finishing +
+              " | SKU: " + item.sku;
 
-        // Create product in Wave to get productId
-        const prodData = await gql(`mutation($input: ProductCreateInput!) {
-          productCreate(input: $input) {
-            product { id }
-            didSucceed
-            inputErrors { message }
+        // Search for existing product
+        const searchData = await gql(`query {
+          business(id: "${BUSINESS_ID}") {
+            products(page: 1, pageSize: 50) {
+              edges { node { id name } }
+            }
           }
-        }`, { input: { businessId: BUSINESS_ID, name: productName, unitPrice: parseFloat(item.price).toFixed(2) } });
+        }`, {});
 
-        const productId = prodData?.data?.productCreate?.product?.id;
+        const products = searchData?.data?.business?.products?.edges || [];
+        const match = products.find(e => e.node.name.toUpperCase().includes(item.name.replace(' RUG','').toUpperCase()) || e.node.name.toUpperCase() === item.name.toUpperCase());
+        const productId = match?.node?.id;
+
         if (!productId) {
-          return { statusCode: 400, headers, body: JSON.stringify({ error: "Falha ao criar produto", debug: JSON.stringify(prodData) }) };
+          return { statusCode: 400, headers, body: JSON.stringify({ error: "Produto não encontrado no Wave: " + item.name + " | Produtos disponíveis: " + products.map(e=>e.node.name).join(', ') }) };
         }
 
         formattedItems.push({
           productId,
           quantity: String(item.quantity),
           unitPrice: String(parseFloat(item.price).toFixed(2)),
-          description: productName
+          description
         });
       }
 
