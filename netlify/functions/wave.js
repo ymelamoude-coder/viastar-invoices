@@ -61,20 +61,24 @@ exports.handler = async (event) => {
       }));
 
       if (docType === "estimate") {
-        const data = await gql(`mutation($input: EstimateCreateInput!) {
-          estimateCreate(input: $input) {
+        const data = await gql(`mutation {
+          estimateCreate(input: {
+            businessId: "${BUSINESS_ID}",
+            customerId: "${customerId}",
+            items: ${JSON.stringify(formattedItems)}
+          }) {
             estimate { id estimateNumber viewUrl }
             didSucceed
             inputErrors { message }
           }
-        }`, { input: { businessId: BUSINESS_ID, customerId, items: formattedItems } });
+        }`, {});
 
         if (data?.data?.estimateCreate?.didSucceed) {
           const est = data.data.estimateCreate.estimate;
           return { statusCode: 200, headers, body: JSON.stringify({ success: true, number: est.estimateNumber, viewUrl: est.viewUrl, type: "estimate" }) };
         } else {
           const errs = data?.data?.estimateCreate?.inputErrors?.map(e => e.message).join(", ");
-          return { statusCode: 400, headers, body: JSON.stringify({ error: "Erro ao criar estimate: " + errs }) };
+          return { statusCode: 400, headers, body: JSON.stringify({ error: "Erro ao criar estimate: " + errs + " | debug: " + JSON.stringify(data) }) };
         }
       } else {
         const data = await gql(`mutation($input: InvoiceCreateInput!) {
@@ -90,7 +94,7 @@ exports.handler = async (event) => {
           return { statusCode: 200, headers, body: JSON.stringify({ success: true, number: inv.invoiceNumber, viewUrl: inv.viewUrl, type: "invoice" }) };
         } else {
           const errs = data?.data?.invoiceCreate?.inputErrors?.map(e => e.message).join(", ");
-          return { statusCode: 400, headers, body: JSON.stringify({ error: "Erro ao criar invoice: " + errs }) };
+          return { statusCode: 400, headers, body: JSON.stringify({ error: "Erro ao criar invoice: " + errs + " | debug: " + JSON.stringify(data) }) };
         }
       }
     } catch (e) {
