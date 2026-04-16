@@ -74,7 +74,8 @@
     .submit-btn:active { transform: scale(0.99); }
     .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
-    .status { display: none; padding: 14px 16px; border-radius: 10px; font-size: 14px; margin-top: 12px; line-height: 1.5; }
+    .label-btn { width: 100%; height: 50px; background: none; color: var(--accent); border: 2px solid var(--accent); border-radius: var(--radius); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 10px; transition: all .15s; }
+    .label-btn:hover { background: var(--accent-light); } padding: 14px 16px; border-radius: 10px; font-size: 14px; margin-top: 12px; line-height: 1.5; }
     .status.success { display: block; background: var(--success-bg); color: var(--success); border: 1px solid #b6e8cc; }
     .status.error { display: block; background: var(--danger-bg); color: var(--danger); border: 1px solid #f5c4bc; }
     .status a { color: inherit; font-weight: 500; }
@@ -110,11 +111,109 @@
 
   <div class="loading-bar" id="loadingBar"></div>
   <button class="submit-btn" id="submitBtn" onclick="submitDoc()">Criar invoice no Wave</button>
+  <button class="label-btn" id="labelBtn" onclick="generateLabels()" style="display:none;">Gerar etiquetas</button>
   <div class="status" id="statusMsg"></div>
 </div>
 
 <script>
 let docType = 'invoice';
+let lastInvoiceData = null;
+
+const PRODUCT_INFO = {
+  "ALLURE RUG":      { origin: "Turkey",  material: "100% Polypropilene" },
+  "ANTIQUE PET RUG": { origin: "India",   material: "100% Recycled Polyester" },
+  "ARTISAN RUG":     { origin: "Turkey",  material: "100% Polypropilene" },
+  "AUREN RUG":       { origin: "Turkey",  material: "100% Polyester" },
+  "BRISA RUG":       { origin: "Turkey",  material: "100% Polypropilene" },
+  "DAYTONA RUG":     { origin: "Holland", material: "100% Polypropilene" },
+  "ESCAPE RUG":      { origin: "Belgium", material: "100% Polypropilene" },
+  "GOYA RUG":        { origin: "Turkey",  material: "100% Polyester" },
+  "GRANELLO RUG":    { origin: "Holland", material: "100% Recycled Polyester" },
+  "JAKARTA RUG":     { origin: "Belgium", material: "100% Polypropilene" },
+  "LOMBOK RUG":      { origin: "Belgium", material: "100% Polypropilene" },
+  "LOOP RUG":        { origin: "Turkey",  material: "100% Polypropilene" },
+  "MAHAL RUG":       { origin: "Turkey",  material: "85% Polypropilene 15% Poliester" },
+  "NATURE RUG":      { origin: "Turkey",  material: "100% Polypropilene" },
+  "NEW CONCEPT RUG": { origin: "Holland", material: "100% Polyester" },
+  "NOMAD RUG":       { origin: "Belgium", material: "83% Wool 13% Jute" },
+  "PIENZA RUG":      { origin: "Turkey",  material: "100% Polypropilene" },
+  "PURE RUG":        { origin: "Turkey",  material: "100% Polypropilene" },
+  "REPLAY RUG":      { origin: "Turkey",  material: "85% Polypropilene 15% Poliester" },
+  "SPOT RUG":        { origin: "Turkey",  material: "100% Polyester" },
+  "TANZANIA RUG":    { origin: "Holland", material: "100% Nylon" },
+  "VELVET RUG":      { origin: "Belgium", material: "100% Polyester" }
+};
+
+function generateLabels() {
+  if (!lastInvoiceData) return;
+  const { invoiceNumber, customerName, items } = lastInvoiceData;
+  let pages = '';
+  for (const item of items) {
+    const info = PRODUCT_INFO[item.name] || { origin: '', material: '' };
+    const productName = item.name.replace(' RUG', '');
+    for (let i = 0; i < item.quantity; i++) {
+      pages += `
+        <div class="label">
+          <div class="label-inner rotated">
+            <div class="prod-name">${productName}</div>
+            <div class="prod-color">${item.color}</div>
+            <div class="spacer"></div>
+            <div class="detail-row">
+              <span class="detail-val big">${item.measurements}</span>
+              ${item.shape !== 'Rectangular' ? `<span class="detail-val">${item.shape}</span>` : ''}
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Finishing</span>
+              <span class="detail-val">${item.finishing}</span>
+            </div>
+            <div class="spacer"></div>
+            <div class="detail-row">
+              <span class="detail-label">Origin</span>
+              <span class="detail-val">${info.origin}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Material</span>
+              <span class="detail-val">${info.material}</span>
+            </div>
+            <div class="spacer"></div>
+            <div class="inv-num">INV ${invoiceNumber}-${i+1}</div>
+          </div>
+        </div>
+        <div class="label">
+          <div class="label-inner center">
+            <div class="cust-name">${customerName}</div>
+            <div class="cust-inv">${invoiceNumber}</div>
+          </div>
+        </div>`;
+    }
+  }
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Etiquetas INV ${invoiceNumber}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#fff;}
+  .label{width:4in;height:6in;display:flex;align-items:center;justify-content:center;page-break-after:always;padding:0.3in;}
+  .label-inner{width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;font-family:'Times New Roman',serif;}
+  .rotated{transform:rotate(180deg);}
+  .center{align-items:center;justify-content:center;}
+  .prod-name{font-size:30pt;font-weight:bold;margin-bottom:2pt;}
+  .prod-color{font-size:20pt;font-weight:bold;margin-bottom:10pt;}
+  .detail-row{display:flex;justify-content:space-between;margin-bottom:5pt;}
+  .detail-label{font-size:12pt;}
+  .detail-val{font-size:12pt;font-weight:bold;}
+  .detail-val.big{font-size:16pt;}
+  .spacer{height:8pt;}
+  .inv-num{font-size:12pt;font-weight:bold;margin-top:8pt;}
+  .cust-name{font-size:34pt;font-weight:bold;text-align:center;margin-bottom:16pt;}
+  .cust-inv{font-size:52pt;font-weight:bold;text-align:center;}
+  @media print{.label{page-break-after:always;}}
+</style></head>
+<body>${pages}</body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 600);
+}
 
 function setType(type) {
   docType = type;
@@ -286,6 +385,9 @@ async function submitDoc() {
     const data=await res.json();
     if (data.success) {
       const label=docType==='invoice'?'Invoice':'Estimate';
+      const customerName = document.getElementById('customerSelect').options[document.getElementById('customerSelect').selectedIndex].text;
+      lastInvoiceData = { invoiceNumber: data.number, customerName, items };
+      document.getElementById('labelBtn').style.display = 'block';
       showStatus(`${label} <strong>#${data.number}</strong> criado com sucesso! <a href="${data.viewUrl}" target="_blank">Ver no Wave →</a>`,'success');
       document.getElementById('customerSelect').value='';
       document.getElementById('itemsContainer').innerHTML='';
