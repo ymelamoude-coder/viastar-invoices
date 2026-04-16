@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Via Star Rugs</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #F6F4F1; --surface: #FFFFFF; --border: #E2DDD8; --border2: #C8C4BE;
+      --text: #1C1916; --muted: #7A746D; --accent: #1A3A6B; --accent-light: #EAF0FA;
+      --success-bg: #EDFAF3; --success: #1A7A4A;
+      --danger-bg: #FDF0EE; --danger: #B83225;
+      --warning-bg: #FEF6E4; --warning: #92600A;
+      --radius: 12px; --radius-sm: 8px;
+    }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 2.5rem 1rem 4rem; }
+    .container { max-width: 680px; margin: 0 auto; }
+    .brand { font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    h1 { font-family: 'DM Serif Display', serif; font-size: 2.2rem; font-weight: 400; letter-spacing: -0.02em; margin-bottom: 0.75rem; }
+
+    .type-toggle { display: flex; gap: 8px; margin-bottom: 2rem; }
+    .type-btn { padding: 7px 22px; border-radius: 20px; border: 1px solid var(--border2); background: none; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--muted); transition: all .15s; }
+    .type-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; }
+    .card-label { font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 1.25rem; }
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+    input, select {
+      width: 100%; height: 40px; padding: 0 12px;
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text);
+      background: var(--bg); outline: none; transition: border-color .15s;
+      appearance: none; -webkit-appearance: none;
+    }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237A746D' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; cursor: pointer; }
+    input:focus, select:focus { border-color: var(--accent); background: #fff; }
+    input::placeholder { color: #C0BBB4; }
+
+    .row2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
+    .row3 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap: 12px; }
+
+    .item-block { border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; margin-bottom: 10px; background: var(--bg); }
+    .item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .item-num { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .remove-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 22px; line-height: 1; padding: 0 2px; transition: color .15s; }
+    .remove-btn:hover { color: var(--danger); }
+
+    .sku-pill { display: inline-block; margin-top: 8px; font-size: 11px; font-weight: 500; color: var(--accent); background: var(--accent-light); border-radius: 20px; padding: 3px 10px; min-height: 20px; }
+    .organic-badge { display: none; margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--warning); background: var(--warning-bg); border-radius: 20px; padding: 3px 10px; }
+
+    .meas-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,60px) 20px minmax(0,1fr) minmax(0,60px); gap: 6px; align-items: end; }
+    .meas-sep { font-size: 18px; font-weight: 300; color: var(--muted); text-align: center; padding-bottom: 6px; }
+    .meas-unit { font-size: 11px; color: var(--muted); margin-bottom: 4px; display: block; }
+    .price-note { font-size: 11px; color: var(--muted); margin-top: 5px; font-style: italic; }
+
+    .add-btn { width: 100%; padding: 10px; background: none; border: 1.5px dashed var(--border2); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--muted); cursor: pointer; transition: all .15s; margin-top: 4px; }
+    .add-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+    .total-row { display: flex; justify-content: flex-end; align-items: baseline; gap: 12px; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+    .total-label { font-size: 13px; color: var(--muted); }
+    .total-val { font-family: 'DM Serif Display', serif; font-size: 30px; letter-spacing: -0.02em; }
+
+    .loading-bar { height: 2px; background: var(--border); border-radius: 2px; margin-bottom: 1rem; overflow: hidden; display: none; }
+    .loading-bar.active { display: block; }
+    .loading-bar::after { content: ''; display: block; height: 100%; width: 40%; background: var(--accent); border-radius: 2px; animation: slide 1.2s ease-in-out infinite; }
+    @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
+
+    .submit-btn { width: 100%; height: 50px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; transition: opacity .15s, transform .1s; }
+    .submit-btn:hover { opacity: 0.88; }
+    .submit-btn:active { transform: scale(0.99); }
+    .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .status { display: none; padding: 14px 16px; border-radius: 10px; font-size: 14px; margin-top: 12px; line-height: 1.5; }
+    .status.success { display: block; background: var(--success-bg); color: var(--success); border: 1px solid #b6e8cc; }
+    .status.error { display: block; background: var(--danger-bg); color: var(--danger); border: 1px solid #f5c4bc; }
+    .status a { color: inherit; font-weight: 500; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <p class="brand">Via Star Rugs</p>
+  <h1 id="docTitle">Nova invoice</h1>
+
+  <div class="type-toggle">
+    <button class="type-btn active" id="btn-invoice" onclick="setType('invoice')">Invoice</button>
+    <button class="type-btn" id="btn-estimate" onclick="setType('estimate')">Estimate</button>
+  </div>
+
+  <div class="card">
+    <p class="card-label">Cliente</p>
+    <div class="field">
+      <label>Selecionar cliente</label>
+      <select id="customerSelect"><option value="">Carregando clientes...</option></select>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-label">Itens</p>
+    <div id="itemsContainer"></div>
+    <button class="add-btn" onclick="addItem()">+ Adicionar item</button>
+    <div class="total-row">
+      <span class="total-label">Total</span>
+      <span class="total-val" id="totalAmount">$0.00</span>
+    </div>
+  </div>
+
+  <div class="loading-bar" id="loadingBar"></div>
+  <button class="submit-btn" id="submitBtn" onclick="submitDoc()">Criar invoice no Wave</button>
+  <div class="status" id="statusMsg"></div>
+</div>
+
+<script>
+let docType = 'invoice';
+
+function setType(type) {
+  docType = type;
+  document.getElementById('docTitle').textContent = type === 'invoice' ? 'Nova invoice' : 'Novo estimate';
+  document.getElementById('btn-invoice').classList.toggle('active', type === 'invoice');
+  document.getElementById('btn-estimate').classList.toggle('active', type === 'estimate');
+  document.getElementById('submitBtn').textContent = type === 'invoice' ? 'Criar invoice no Wave' : 'Criar estimate no Wave';
+}
+
+const PRODUCTS = ["ALLURE RUG","ANTIQUE PET RUG","ARTISAN RUG","AUREN RUG","BRISA RUG","DAYTONA RUG","ESCAPE RUG","GOYA RUG","GRANELLO RUG","JAKARTA RUG","LOMBOK RUG","LOOP RUG","MAHAL RUG","NATURE RUG","NEW CONCEPT RUG","NOMAD RUG","PIENZA RUG","PURE RUG","REPLAY RUG","SPOT RUG","TANZANIA RUG","VELVET RUG"];
+const PRODUCT_CODES = {"ALLURE RUG":"ALR","ANTIQUE PET RUG":"ANT","ARTISAN RUG":"ART","AUREN RUG":"AUR","BRISA RUG":"BRS","DAYTONA RUG":"DAY","ESCAPE RUG":"ESC","GOYA RUG":"GOY","GRANELLO RUG":"GRN","JAKARTA RUG":"JCT","LOMBOK RUG":"LBK","LOOP RUG":"LOP","MAHAL RUG":"MHL","NATURE RUG":"NAT","NEW CONCEPT RUG":"NCP","NOMAD RUG":"NMD","PIENZA RUG":"PNZ","PURE RUG":"PUR","REPLAY RUG":"RPL","SPOT RUG":"SPT","TANZANIA RUG":"TNZ","VELVET RUG":"VLT"};
+const PRODUCT_COLORS = {"ALLURE RUG":["6483"],"ANTIQUE PET RUG":["Fendi"],"ARTISAN RUG":["583","663"],"AUREN RUG":["Beige","Cream"],"BRISA RUG":["Beige","Champagne"],"DAYTONA RUG":["Champagne","Ivory","Silver"],"ESCAPE RUG":["70","85"],"GOYA RUG":["Chevron Beige","Chevron Silver","Stripes Beige","Stripes Silver"],"GRANELLO RUG":["Cream","Fendi"],"JAKARTA RUG":["Zig Sand","Zig Silver"],"LOMBOK RUG":["15 Beige","15 Silver","18 Beige","18 Silver"],"LOOP RUG":["Beige","Cream"],"MAHAL RUG":["Black","Ivory","Vision"],"NATURE RUG":["Champagne","Sand","Silver"],"NEW CONCEPT RUG":["Beige","Cream"],"NOMAD RUG":["650","670"],"PIENZA RUG":["Cream","Green","Ice","Silver"],"PURE RUG":["361"],"REPLAY RUG":["Beige","Cream","Silver"],"SPOT RUG":["Ice","Oil","Rust","Sand","Silver"],"TANZANIA RUG":["Beige","Cream"],"VELVET RUG":["Wheat"]};
+const COLOR_CODES = {"15 Beige":"15B","15 Silver":"15S","18 Beige":"18B","18 Silver":"18S","361":"361","583":"583","650":"650","663":"663","670":"670","6483":"6483","70":"70","85":"85","Beige":"BEI","Black":"BLA","Champagne":"CHP","Chevron Beige":"CBG","Chevron Silver":"CSL","Cream":"CRE","Fendi":"FND","Green":"GRE","Ice":"ICE","Ivory":"IVR","Oil":"OIL","Rust":"RUS","Sand":"SND","Silver":"SIL","Stripes Beige":"SBE","Stripes Silver":"SSL","Vision":"VIS","Wheat":"WHE","Zig Sand":"ZSA","Zig Silver":"ZSIL"};
+const FINISHINGS = ["Serged Edges","Folded Edges"];
+const FINISHING_CODES = {"Serged Edges":"S","Folded Edges":"F"};
+const SHAPES = ["Rectangular","Round","Organic 1","Organic 2","Organic 3","Organic 4","Organic 5Q","Organic 5R","Organic 6","Organic 7","Organic 8","Organic 9","Organic 10","Organic 11"];
+const SHAPE_CODES = {"Rectangular":"RT","Round":"RD","Organic 1":"O1","Organic 2":"O2","Organic 3":"O3","Organic 4":"O4","Organic 5Q":"O5","Organic 5R":"O5","Organic 6":"O6","Organic 7":"O7","Organic 8":"O8","Organic 9":"O9","Organic 10":"O10","Organic 11":"O11"};
+const S13 = ["5'x7'","6'x9'","9'x12'","10'x13'","12'x15'","Round 6'","Round 13'","Custom Size"];
+const S16 = ["5'x7'","6'x9'","8'x10'","10'x14'","12'x15'","13'x16'","Round 8'","Round 16'","Custom Size"];
+const SBRISA = ["5'x7'","6'x9'","9'x12'","10'x12'9\"","12'x15'","Round 6'","Round 12'9\"","Custom Size"];
+const PRODUCT_SIZES = {"ALLURE RUG":S16,"ANTIQUE PET RUG":S13,"ARTISAN RUG":S16,"AUREN RUG":S13,"BRISA RUG":SBRISA,"DAYTONA RUG":S13,"ESCAPE RUG":S13,"GOYA RUG":S13,"GRANELLO RUG":S13,"JAKARTA RUG":S13,"LOMBOK RUG":S13,"LOOP RUG":SBRISA,"MAHAL RUG":S16,"NATURE RUG":S13,"NEW CONCEPT RUG":S13,"NOMAD RUG":S13,"PIENZA RUG":SBRISA,"PURE RUG":S16,"REPLAY RUG":S16,"SPOT RUG":S16,"TANZANIA RUG":S13,"VELVET RUG":S16};
+const PRICES = {"ALLURE RUG":[4.30,5.16,5.80,6.96],"ANTIQUE PET RUG":[6.50,7.80,8.00,9.60],"ARTISAN RUG":[4.30,5.16,5.80,6.96],"AUREN RUG":[4.30,5.16,5.80,6.96],"BRISA RUG":[4.30,5.16,5.80,6.96],"DAYTONA RUG":[6.50,7.80,8.00,9.60],"ESCAPE RUG":[5.20,6.24,6.70,8.04],"GOYA RUG":[4.30,5.16,5.80,6.96],"GRANELLO RUG":[6.50,7.80,8.00,9.60],"JAKARTA RUG":[4.30,5.16,5.80,6.96],"LOMBOK RUG":[4.30,5.16,5.80,6.96],"LOOP RUG":[4.30,5.16,5.80,6.96],"MAHAL RUG":[6.50,7.80,8.00,9.60],"NATURE RUG":[4.30,5.16,5.80,6.96],"NEW CONCEPT RUG":[6.50,7.80,8.00,9.60],"NOMAD RUG":[6.50,7.80,8.00,9.60],"PIENZA RUG":[5.20,6.24,6.70,8.04],"PURE RUG":[6.50,7.80,8.00,9.60],"REPLAY RUG":[4.30,5.16,5.80,6.96],"SPOT RUG":[5.20,6.24,6.70,8.04],"TANZANIA RUG":[6.50,7.80,8.00,9.60],"VELVET RUG":[5.20,6.24,6.70,8.04]};
+const SIZE_AREAS = {"5'x7'":35,"6'x9'":54,"8'x10'":80,"9'x12'":108,"10'x13'":130,"10'x14'":140,"12'x15'":180,"13'x16'":208,"10'x12'9\"":127.5,"12'9\"x16'":204,"Round 6'":Math.PI*9,"Round 8'":Math.PI*16,"Round 13'":Math.PI*42.25,"Round 16'":Math.PI*64,"Round 12'9\"":Math.PI*(6.375*6.375)};
+
+function isOrganic(s) { return s && s.startsWith('Organic'); }
+
+function getArea(id) {
+  const ft1=parseFloat(document.getElementById('mft1-'+id)?.value)||0, in1=parseFloat(document.getElementById('min1-'+id)?.value)||0;
+  const ft2=parseFloat(document.getElementById('mft2-'+id)?.value)||0, in2=parseFloat(document.getElementById('min2-'+id)?.value)||0;
+  const w=ft1+in1/12, l=ft2+in2/12;
+  return (w>0&&l>0) ? w*l : null;
+}
+
+function calcPrice(id) {
+  const prod=document.getElementById('prod-'+id)?.value, fin=document.getElementById('fin-'+id)?.value;
+  const size=document.getElementById('size-'+id)?.value, shape=document.getElementById('shape-'+id)?.value;
+  const priceEl=document.getElementById('price-'+id), noteEl=document.getElementById('pnote-'+id), badge=document.getElementById('obadge-'+id);
+  if (!prod||!fin||!size||!priceEl||!noteEl) return;
+  const pArr=PRICES[prod]; if (!pArr) return;
+  const isC=size==='Custom Size', isS=fin==='Serged Edges', org=isOrganic(shape);
+  let pp = isS ? (isC?pArr[1]:pArr[0]) : (isC?pArr[3]:pArr[2]);
+  if (org) pp = pp * 1.2;
+  const area = isC ? getArea(id) : (SIZE_AREAS[size]||null);
+  if (badge) badge.style.display = org ? 'inline-block' : 'none';
+  if (area) {
+    const tot = (pp*area).toFixed(2);
+    priceEl.value = tot;
+    noteEl.textContent = '$'+pp.toFixed(2)+'/sqft × '+area.toFixed(2)+' sqft = $'+tot+(org?' (incl. +20% organic)':'');
+    updateTotal();
+  } else {
+    priceEl.value = '';
+    noteEl.textContent = isC ? '$'+pp.toFixed(2)+'/sqft — preencha as medidas' : '$'+pp.toFixed(2)+'/sqft';
+  }
+}
+
+let itemCount = 0;
+function opts(arr,ph) { return `<option value="">${ph}</option>`+arr.map(v=>`<option>${v}</option>`).join(''); }
+function optsShape() { return SHAPES.map(v=>`<option${v==='Rectangular'?' selected':''}>${v}</option>`).join(''); }
+function updateColors(id) { const prod=document.getElementById('prod-'+id)?.value, sel=document.getElementById('color-'+id); if(!sel)return; const c=prod&&PRODUCT_COLORS[prod]?PRODUCT_COLORS[prod]:[]; sel.innerHTML=`<option value="">Selecionar...</option>`+c.map(x=>`<option>${x}</option>`).join(''); }
+function updateSizes(id) { const prod=document.getElementById('prod-'+id)?.value, sel=document.getElementById('size-'+id); if(!sel)return; const s=prod&&PRODUCT_SIZES[prod]?PRODUCT_SIZES[prod]:["Custom Size"]; sel.innerHTML=`<option value="">Selecionar...</option>`+s.map(x=>`<option>${x}</option>`).join(''); }
+function onProdChange(id) { updateColors(id); updateSizes(id); buildSKU(id); calcPrice(id); }
+
+function buildSKU(id) {
+  const prod=document.getElementById('prod-'+id)?.value, color=document.getElementById('color-'+id)?.value;
+  const fin=document.getElementById('fin-'+id)?.value, shape=document.getElementById('shape-'+id)?.value, size=document.getElementById('size-'+id)?.value;
+  const pc=PRODUCT_CODES[prod]||'', cc=COLOR_CODES[color]||'', fc=FINISHING_CODES[fin]||'', sc=SHAPE_CODES[shape]||'';
+  let sz='';
+  if (size==='Custom Size') sz='C';
+  else if (size&&size.startsWith('Round')) { const r=size.replace('Round ','').replace(/['"]/g,''); sz=`R-${r}x${r}`; }
+  else if (size) { const p=size.replace(/['"]/g,'').split('x'); sz=`S-${p[0].trim()}x${p[1]?.trim()}`; }
+  const el=document.getElementById('sku-'+id);
+  if (el) el.textContent=[pc,cc,fc,sc,sz].filter(Boolean).join('-')||'';
+}
+
+function addItem() {
+  itemCount++; const n=itemCount;
+  const div=document.createElement('div'); div.className='item-block'; div.id='item-'+n;
+  div.innerHTML=`
+    <div class="item-header"><span class="item-num">Item ${n}</span><button class="remove-btn" onclick="removeItem(${n})">×</button></div>
+    <div class="row2" style="margin-bottom:12px">
+      <div class="field" style="margin:0"><label>Produto</label><select id="prod-${n}" onchange="onProdChange(${n})">${opts(PRODUCTS,'Selecionar...')}</select></div>
+      <div class="field" style="margin:0"><label>Cor</label><select id="color-${n}" onchange="buildSKU(${n})"><option value="">Selecione o produto</option></select></div>
+    </div>
+    <div class="row3" style="margin-bottom:12px">
+      <div class="field" style="margin:0"><label>Acabamento</label><select id="fin-${n}" onchange="buildSKU(${n});calcPrice(${n})">${opts(FINISHINGS,'Selecionar...')}</select></div>
+      <div class="field" style="margin:0"><label>Shape</label><select id="shape-${n}" onchange="buildSKU(${n});calcPrice(${n})">${optsShape()}</select></div>
+      <div class="field" style="margin:0"><label>Tamanho</label><select id="size-${n}" onchange="buildSKU(${n});calcPrice(${n})"><option value="">Selecione o produto</option></select></div>
+    </div>
+    <div class="field" style="margin-bottom:10px">
+      <label>Medidas</label>
+      <div class="meas-row">
+        <div><span class="meas-unit">ft</span><input type="number" id="mft1-${n}" placeholder="0" min="0" style="width:100%" oninput="calcPrice(${n})"></div>
+        <div><span class="meas-unit">in</span><input type="number" id="min1-${n}" placeholder="0" min="0" max="11" style="width:100%" oninput="calcPrice(${n})"></div>
+        <div class="meas-sep">×</div>
+        <div><span class="meas-unit">ft</span><input type="number" id="mft2-${n}" placeholder="0" min="0" style="width:100%" oninput="calcPrice(${n})"></div>
+        <div><span class="meas-unit">in</span><input type="number" id="min2-${n}" placeholder="0" min="0" max="11" style="width:100%" oninput="calcPrice(${n})"></div>
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <span class="sku-pill" id="sku-${n}"></span>
+      <span class="organic-badge" id="obadge-${n}">+20% organic shape</span>
+    </div>
+    <div class="row2">
+      <div class="field" style="margin:0"><label>Quantidade</label><input type="number" id="qty-${n}" value="1" min="1" oninput="updateTotal()"></div>
+      <div class="field" style="margin:0"><label>Preço unit. ($)</label><input type="number" id="price-${n}" placeholder="calculado auto" step="0.01" oninput="updateTotal()"><p class="price-note" id="pnote-${n}"></p></div>
+    </div>
+  `;
+  document.getElementById('itemsContainer').appendChild(div);
+}
+
+function removeItem(n) { if(document.querySelectorAll('.item-block').length>1){document.getElementById('item-'+n).remove();updateTotal();} }
+function updateTotal() { let t=0; document.querySelectorAll('.item-block').forEach(b=>{const id=b.id.replace('item-','');t+=(parseFloat(document.getElementById('qty-'+id)?.value)||0)*(parseFloat(document.getElementById('price-'+id)?.value)||0);}); document.getElementById('totalAmount').textContent='$'+t.toFixed(2); }
+
+function getMeasurements(id) {
+  const ft1=document.getElementById('mft1-'+id)?.value||'0', in1=document.getElementById('min1-'+id)?.value||'0';
+  const ft2=document.getElementById('mft2-'+id)?.value||'0', in2=document.getElementById('min2-'+id)?.value||'0';
+  return `${ft1}ft ${in1}in × ${ft2}ft ${in2}in`;
+}
+
+async function submitDoc() {
+  const btn=document.getElementById('submitBtn'), status=document.getElementById('statusMsg'), bar=document.getElementById('loadingBar');
+  const customerId=document.getElementById('customerSelect').value;
+  if (!customerId) { showStatus('Selecione um cliente.','error'); return; }
+
+  const items=[]; let valid=true;
+  document.querySelectorAll('.item-block').forEach(block => {
+    const id=block.id.replace('item-','');
+    const name=document.getElementById('prod-'+id)?.value;
+    const color=document.getElementById('color-'+id)?.value||'';
+    const finishing=document.getElementById('fin-'+id)?.value||'';
+    const shape=document.getElementById('shape-'+id)?.value||'';
+    const measurements=getMeasurements(id);
+    const sku=document.getElementById('sku-'+id)?.textContent||'';
+    const quantity=parseFloat(document.getElementById('qty-'+id)?.value)||1;
+    const price=parseFloat(document.getElementById('price-'+id)?.value)||0;
+    if (!name) { valid=false; return; }
+    items.push({name, color, finishing, shape, measurements, sku, quantity, price});
+  });
+
+  if (!valid||items.length===0) { showStatus('Selecione o produto em todos os itens.','error'); return; }
+
+  btn.disabled=true; bar.classList.add('active'); status.style.display='none';
+  btn.textContent = docType==='invoice' ? 'Criando invoice...' : 'Criando estimate...';
+
+  try {
+    const res=await fetch('/.netlify/functions/wave', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({customerId, items, docType})
+    });
+    const data=await res.json();
+    if (data.success) {
+      const label=docType==='invoice'?'Invoice':'Estimate';
+      showStatus(`${label} <strong>#${data.number}</strong> criado com sucesso! <a href="${data.viewUrl}" target="_blank">Ver no Wave →</a>`,'success');
+      document.getElementById('customerSelect').value='';
+      document.getElementById('itemsContainer').innerHTML='';
+      itemCount=0; addItem(); updateTotal();
+    } else {
+      throw new Error(data.error||'Erro desconhecido.');
+    }
+  } catch(e) {
+    showStatus(e.message||'Erro inesperado. Tente novamente.','error');
+  }
+
+  btn.disabled=false; bar.classList.remove('active');
+  btn.textContent=docType==='invoice'?'Criar invoice no Wave':'Criar estimate no Wave';
+}
+
+function showStatus(msg,type) { const s=document.getElementById('statusMsg'); s.innerHTML=msg; s.className='status '+type; }
+
+async function loadCustomers() {
+  const sel = document.getElementById('customerSelect');
+  try {
+    const res = await fetch('/.netlify/functions/wave?action=customers');
+    const data = await res.json();
+    if (data.customers && data.customers.length > 0) {
+      sel.innerHTML = '<option value="">Selecionar...</option>' +
+        data.customers.sort((a,b)=>a.name.localeCompare(b.name)).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    } else {
+      sel.innerHTML = '<option value="">Nenhum cliente encontrado</option>';
+    }
+  } catch(e) {
+    sel.innerHTML = '<option value="">Erro ao carregar clientes</option>';
+  }
+}
+
+loadCustomers();
+addItem();
+</script>
+</body>
+</html>
