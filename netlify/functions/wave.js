@@ -71,8 +71,8 @@ exports.handler = async (event) => {
 
         formattedItems.push({
           productId,
-          quantity: item.quantity,
-          unitPrice: parseFloat(item.price),
+          quantity: String(item.quantity),
+          unitPrice: String(parseFloat(item.price).toFixed(2)),
           description: productName
         });
       }
