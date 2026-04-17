@@ -109,8 +109,8 @@ export default async function handler(req, res) {
           customerId, 
           items: estimateItems.map(i => ({
             productId: i.productId,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice
+            quantity: parseFloat(i.quantity),
+            unitPrice: parseFloat(i.unitPrice)
           }))
         };
         
