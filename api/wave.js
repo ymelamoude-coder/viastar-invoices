@@ -64,11 +64,16 @@ export default async function handler(req, res) {
         }`, {});
 
         const products = searchData?.data?.business?.products?.edges || [];
+        const searchName = item.name.toUpperCase();
+        const searchNameNoRug = searchName.replace(' RUG', '');
         const match = products.find(e => {
-          const name = e.node.name.toUpperCase();
+          const name = e.node.name.toUpperCase().trim();
           if (name.startsWith('Z ')) return false; // ignore renamed duplicates
-          return name.includes(item.name.replace(' RUG','').toUpperCase()) ||
-                 name === item.name.toUpperCase();
+          return name === searchName ||                          // exact: "MAHAL RUG"
+                 name === searchNameNoRug ||                     // exact: "MAHAL"
+                 name.includes(searchName) ||                    // contains full name
+                 name.includes(searchNameNoRug) ||               // contains name without RUG
+                 searchName.includes(name);                      // full name contains product name
         });
         const productId = match?.node?.id;
 
