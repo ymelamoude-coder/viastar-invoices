@@ -447,81 +447,26 @@ async function handlePDF(input) {
 
   const statusEl = document.getElementById('uploadStatus');
   statusEl.style.display = 'block';
-  statusEl.innerHTML = '<div style="color:var(--muted);font-size:13px;">Lendo PDF com IA...</div>';
+  statusEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:10px 14px;background:var(--color-background-secondary);border-radius:8px;">Lendo PDF com IA...</div>';
 
   const uploadArea = document.getElementById('uploadArea');
   uploadArea.style.opacity = '0.5';
   uploadArea.style.pointerEvents = 'none';
 
   try {
-    // Convert PDF to base64
     const base64 = await fileToBase64(file);
 
-    // Call Claude API to extract data
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/parse-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: base64 }
-            },
-            {
-              type: 'text',
-              text: `Extract the purchase order or estimate data from this PDF and return ONLY valid JSON, no markdown, no explanation.
-
-Return this exact structure:
-{
-  "customer": "customer company name",
-  "items": [
-    {
-      "product": "product name (e.g. LOMBOK RUG, GOYA RUG, MAHAL RUG)",
-      "color": "color name",
-      "shape": "shape (Rectangular, Round, Organic 1, etc) - use Rectangular if not specified",
-      "finishing": "Serged Edges or Folded Edges - use Serged Edges if not specified",
-      "measurements": "e.g. 8ft × 10ft or 9ft × 12ft",
-      "ft1": number,
-      "in1": number,
-      "ft2": number,
-      "in2": number,
-      "quantity": number,
-      "price": number
-    }
-  ]
-}
-
-Rules:
-- For product name: extract the rug type (LOMBOK, GOYA, MAHAL, DAYTONA, etc) and append RUG
-- For MH2G POs: decode the SKU code (e.g. MHL-VIS-S-O2-S_8x10 = MAHAL RUG, Vision color, Serged, Organic 2, 8x10)
-- For Modloft POs: decode SKU (e.g. GOY-SST-F-RT-S-9X12 = GOYA RUG, Stripes Silver, Folded, Rectangular, 9x12)
-- For Neiman POs: parse description text (e.g. "lombok 18 silver 8x10" = LOMBOK RUG, 18 Silver, 8ft × 10ft)
-- Extract ft and inches separately for measurements
-- If size is like "8x10" or "8' x 10'" → ft1=8, in1=0, ft2=10, in2=0
-- customer should match one of the Wave customers (use the company name from the PO header)`
-            }
-          ]
-        })
-      })
+      body: JSON.stringify({ pdfBase64: base64 })
     });
 
-    const data = await response.json();
-    const text = data.content?.[0]?.text || '{}';
-    let parsed;
-    try {
-      parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
-    } catch(e) {
-      throw new Error('Não foi possível interpretar o PDF. Tente novamente.');
-    }
+    const parsed = await response.json();
+    if (!response.ok) throw new Error(parsed.error || 'Erro ao processar PDF');
 
-    // Apply extracted data to form
     applyExtractedData(parsed);
-
-    statusEl.innerHTML = `<div style="color:var(--success);font-size:13px;background:var(--success-bg);padding:10px 14px;border-radius:8px;">PDF importado com sucesso! Revise os dados abaixo.</div>`;
+    statusEl.innerHTML = `<div style="color:var(--success);font-size:13px;background:var(--success-bg);padding:10px 14px;border-radius:8px;">PDF importado! Revise os dados abaixo antes de criar a invoice.</div>`;
 
   } catch(e) {
     statusEl.innerHTML = `<div style="color:var(--danger);font-size:13px;background:var(--danger-bg);padding:10px 14px;border-radius:8px;">Erro: ${e.message}</div>`;
