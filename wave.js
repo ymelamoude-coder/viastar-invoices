@@ -13,17 +13,15 @@ async function gql(query, variables) {
   return res.json();
 }
 
-exports.handler = async (event) => {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json"
-  };
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Content-Type", "application/json");
 
-  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers, body: "" };
+  if (req.method === "OPTIONS") return res.status(200).end();
 
   // GET customers
-  if (event.httpMethod === "GET" && event.queryStringParameters?.action === "customers") {
+  if (req.method === "GET" && req.query.action === "customers") {
     try {
       const data = await gql(`query {
         business(id: "${BUSINESS_ID}") {
@@ -33,46 +31,54 @@ exports.handler = async (event) => {
         }
       }`, {});
       const customers = data?.data?.business?.customers?.edges?.map(e => e.node) || [];
-      return { statusCode: 200, headers, body: JSON.stringify({ customers }) };
+      return res.status(200).json({ customers });
     } catch (e) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
+      return res.status(500).json({ error: e.message });
     }
   }
 
   // POST create invoice or estimate
-  if (event.httpMethod === "POST") {
+  if (req.method === "POST") {
     try {
-      const { customerId, items, docType } = JSON.parse(event.body);
+      const { customerId, items, docType } = req.body;
 
       if (!customerId || !items || items.length === 0) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: "Dados incompletos." }) };
+        return res.status(400).json({ error: "Dados incompletos." });
       }
 
-      // Find existing products in Wave by name
       const formattedItems = [];
       for (const item of items) {
         const productName = item.name;
         const description = "Measurements: " + item.measurements +
-              " | Shape: " + item.shape +
-              " | Color: " + item.color +
-              " | Finishing: " + item.finishing +
-              " | SKU: " + item.sku;
+              (item.shape && item.shape !== "Rectangular" ? "\nShape: " + item.shape : "") +
+              "\nColor: " + item.color +
+              "\nFinishing: " + item.finishing +
+              "\nSKU: " + item.sku;
 
-        // Search for existing product
         const searchData = await gql(`query {
           business(id: "${BUSINESS_ID}") {
-            products(page: 1, pageSize: 50) {
+            products(page: 1, pageSize: 200) {
               edges { node { id name } }
             }
           }
         }`, {});
 
         const products = searchData?.data?.business?.products?.edges || [];
-        const match = products.find(e => e.node.name.toUpperCase().includes(item.name.replace(' RUG','').toUpperCase()) || e.node.name.toUpperCase() === item.name.toUpperCase());
+        const searchName = item.name.toUpperCase().trim();
+        const searchNameNoRug = searchName.replace(' RUG', '').trim();
+        const match = products.find(e => {
+          const name = e.node.name.toUpperCase().trim();
+          if (name.startsWith('Z ')) return false;
+          return name === searchName ||
+                 name === searchNameNoRug ||
+                 name.includes(searchName) ||
+                 name.includes(searchNameNoRug) ||
+                 searchName.includes(name);
+        });
         const productId = match?.node?.id;
 
         if (!productId) {
-          return { statusCode: 400, headers, body: JSON.stringify({ error: "Produto não encontrado no Wave: " + item.name + " | Produtos disponíveis: " + products.map(e=>e.node.name).join(', ') }) };
+          return res.status(400).json({ error: "Produto não encontrado: " + item.name + " | Disponíveis: " + products.map(e => e.node.name).join(', ') });
         }
 
         formattedItems.push({
@@ -84,24 +90,47 @@ exports.handler = async (event) => {
       }
 
       if (docType === "estimate") {
-        const data = await gql(`mutation {
-          estimateCreate(input: {
-            businessId: "${BUSINESS_ID}",
-            customerId: "${customerId}",
-            items: ${JSON.stringify(formattedItems)}
-          }) {
+        // Check EstimateCreateItemInput fields
+        const introData = await gql(`query GetType($name: String!) { __type(name: $name) { inputFields { name type { name kind ofType { name } } } } }`, { name: "EstimateCreateItemInput" });
+        const fields = introData?.data?.__type?.inputFields?.map(f => f.name) || [];
+        
+        // Build items based on available fields
+        const estimateItems = formattedItems.map(item => {
+          const i = { productId: item.productId, quantity: item.quantity };
+          if (fields.includes('unitPrice')) i.unitPrice = item.unitPrice;
+          if (fields.includes('unitAmount')) i.unitAmount = item.unitPrice;
+          if (fields.includes('description')) i.description = item.description;
+          return i;
+        });
+
+        // Try with minimal input first
+        const estimateInput = { 
+          businessId: BUSINESS_ID, 
+          customerId, 
+          items: estimateItems.map(i => ({
+            productId: i.productId,
+            quantity: parseFloat(i.quantity),
+            unitPrice: parseFloat(i.unitPrice)
+          }))
+        };
+        
+        const data = await gql(`mutation($input: EstimateCreateInput!) {
+          estimateCreate(input: $input) {
             estimate { id estimateNumber viewUrl }
             didSucceed
             inputErrors { message }
           }
-        }`, {});
+        }`, { input: estimateInput });
 
         if (data?.data?.estimateCreate?.didSucceed) {
           const est = data.data.estimateCreate.estimate;
-          return { statusCode: 200, headers, body: JSON.stringify({ success: true, number: est.estimateNumber, viewUrl: est.viewUrl, type: "estimate" }) };
+          return res.status(200).json({ success: true, number: est.estimateNumber, viewUrl: est.viewUrl, type: "estimate" });
         } else {
-          const errs = data?.data?.estimateCreate?.inputErrors?.map(e => e.message).join(", ");
-          return { statusCode: 400, headers, body: JSON.stringify({ error: "Erro ao criar estimate: " + errs + " | debug: " + JSON.stringify(data) }) };
+          return res.status(400).json({ 
+            error: "Erro estimate", 
+            sentInput: JSON.stringify(estimateInput),
+            waveResponse: JSON.stringify(data) 
+          });
         }
       } else {
         const data = await gql(`mutation($input: InvoiceCreateInput!) {
@@ -114,16 +143,16 @@ exports.handler = async (event) => {
 
         if (data?.data?.invoiceCreate?.didSucceed) {
           const inv = data.data.invoiceCreate.invoice;
-          return { statusCode: 200, headers, body: JSON.stringify({ success: true, number: inv.invoiceNumber, viewUrl: inv.viewUrl, type: "invoice" }) };
+          return res.status(200).json({ success: true, number: inv.invoiceNumber, viewUrl: inv.viewUrl, type: "invoice" });
         } else {
           const errs = data?.data?.invoiceCreate?.inputErrors?.map(e => e.message).join(", ");
-          return { statusCode: 400, headers, body: JSON.stringify({ error: "Erro ao criar invoice: " + errs + " | debug: " + JSON.stringify(data) }) };
+          return res.status(400).json({ error: "Erro ao criar invoice: " + errs });
         }
       }
     } catch (e) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
+      return res.status(500).json({ error: e.message });
     }
   }
 
-  return { statusCode: 405, headers, body: JSON.stringify({ error: "Method not allowed" }) };
-};
+  return res.status(405).json({ error: "Method not allowed" });
+}
