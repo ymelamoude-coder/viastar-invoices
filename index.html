@@ -378,7 +378,7 @@ async function submitDoc() {
   btn.textContent = docType==='invoice' ? 'Criando invoice...' : 'Criando estimate...';
 
   try {
-    const res=await fetch('/.netlify/functions/wave', {
+    const res=await fetch('/api/wave', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({customerId, items, docType})
     });
@@ -408,7 +408,7 @@ function showStatus(msg,type) { const s=document.getElementById('statusMsg'); s.
 async function loadCustomers() {
   const sel = document.getElementById('customerSelect');
   try {
-    const res = await fetch('/.netlify/functions/wave?action=customers');
+    const res = await fetch('/api/wave?action=customers');
     const data = await res.json();
     if (data.customers && data.customers.length > 0) {
       sel.innerHTML = '<option value="">Selecionar...</option>' +
