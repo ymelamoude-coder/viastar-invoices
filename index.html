@@ -528,7 +528,7 @@ function applyExtractedData(parsed) {
         addItem();
         const n = itemCount;
 
-        // Set product
+        // Set product first, then wait for dependent dropdowns to update
         const prodSel = document.getElementById('prod-' + n);
         if (prodSel && item.product) {
           const prodSearch = item.product.toUpperCase().replace(' RUG', '').trim();
@@ -542,7 +542,7 @@ function applyExtractedData(parsed) {
           }
         }
 
-        // Wait for color dropdown to populate then set all fields
+        // Wait for onProdChange to populate colors and sizes
         setTimeout(() => {
           // Color - exact match first, then partial
           if (item.color) {
@@ -631,7 +631,7 @@ function applyExtractedData(parsed) {
 
           buildSKU(n);
           updateTotal();
-        }, 300 * (idx + 1));
+        }, 800 * (idx + 1));
       });
     }
   });
