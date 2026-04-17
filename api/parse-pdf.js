@@ -9,16 +9,59 @@ module.exports = async function handler(req, res) {
   if (!apiKey) return res.status(500).json({ error: "ANTHROPIC_API_KEY nao configurada" });
 
   try {
-    // Handle body parsing - Vercel may pass raw string or object
     let body = req.body;
     if (typeof body === "string") {
       try { body = JSON.parse(body); } catch(e) { return res.status(400).json({ error: "Invalid JSON body" }); }
     }
 
     const pdfBase64 = body && body.pdfBase64;
-    if (!pdfBase64) return res.status(400).json({ error: "No PDF provided", bodyKeys: Object.keys(body || {}) });
+    if (!pdfBase64) return res.status(400).json({ error: "No PDF provided" });
 
-    const prompt = "Extract data from this PDF and return ONLY valid JSON with no extra text.\n\nFormat: {\"customer\": \"company name\", \"items\": [{\"product\": \"GOYA RUG\", \"color\": \"Silver Stripes\", \"shape\": \"Rectangular\", \"finishing\": \"Folded Edges\", \"ft1\": 9, \"in1\": 0, \"ft2\": 12, \"in2\": 0, \"quantity\": 1, \"price\": 641.52}]}\n\nRules for product names: always append RUG (GOYA RUG, MAHAL RUG, LOMBOK RUG, DAYTONA RUG, etc)\nRules for Modloft SKU GOY-SST-F-RT-S-9X12: product=GOYA RUG, color=Silver Stripes, finishing=Folded Edges, shape=Rectangular, size=9x12\nRules for MH2G SKU MHL-VIS-S-O2-S_8x10: product=MAHAL RUG, color=Vision, finishing=Serged Edges, shape=Organic 2, size=8x10\nRules for Neiman: parse text like 'lombok 18 silver 8x10' as product=LOMBOK RUG color=18 Silver size=8x10\nFor size like 9x12 set ft1=9 in1=0 ft2=12 in2=0. For 13ft 3in x 10ft: ft1=13 in1=3 ft2=10 in2=0\ncustomer = the buyer company (NOT Via Star Rugs)\nDefault shape=Rectangular, default finishing=Serged Edges";
+    const prompt = [
+      "Extract data from this PDF and return ONLY valid JSON with no extra text.",
+      "",
+      'Format: {"customer": "company name", "items": [{"product": "GOYA RUG", "color": "Silver Stripes", "shape": "Rectangular", "finishing": "Folded Edges", "ft1": 9, "in1": 0, "ft2": 12, "in2": 0, "quantity": 1, "price": 641.52}]}',
+      "",
+      "VALID PRODUCT COLORS (use EXACTLY these values):",
+      "ALLURE RUG: 6483",
+      "ANTIQUE PET RUG: Fendi",
+      "ARTISAN RUG: 583, 663",
+      "AUREN RUG: Beige, Cream",
+      "BRISA RUG: Beige, Champagne",
+      "DAYTONA RUG: Champagne, Ivory, Silver",
+      "ESCAPE RUG: 70, 85",
+      "GOYA RUG: Chevron Beige, Chevron Silver, Stripes Beige, Stripes Silver",
+      "GRANELLO RUG: Cream, Fendi",
+      "JAKARTA RUG: Zig Sand, Zig Silver",
+      "LOMBOK RUG: 15 Beige, 15 Silver, 18 Beige, 18 Silver",
+      "LOOP RUG: Beige, Cream",
+      "MAHAL RUG: Black, Ivory, Vision",
+      "NATURE RUG: Champagne, Sand, Silver",
+      "NEW CONCEPT RUG: Beige, Cream",
+      "NOMAD RUG: 650, 670",
+      "PIENZA RUG: Cream, Green, Ice, Silver",
+      "PURE RUG: 361",
+      "REPLAY RUG: Beige, Cream, Silver",
+      "SPOT RUG: Ice, Oil, Rust, Sand, Silver",
+      "TANZANIA RUG: Beige, Cream",
+      "VELVET RUG: Wheat",
+      "",
+      "Always pick the closest matching color from the valid list above.",
+      "For Neiman 'lombok 18 silver' = LOMBOK RUG color='18 Silver'",
+      "For Modloft SKU SST = Silver Stripes → GOYA RUG color='Stripes Silver'",
+      "",
+      "PRODUCT CODES: GOY=GOYA, MHL=MAHAL, LOM/LBK=LOMBOK, DAY=DAYTONA, LOP=LOOP, VLT/VLV=VELVET, ESC=ESCAPE, NAT=NATURE, NMD/NOM=NOMAD, RPL=REPLAY, ALL/ALR=ALLURE, ART=ARTISAN, BRS=BRISA, PNZ=PIENZA, TNZ/TAN=TANZANIA, SPT=SPOT, AUR=AUREN, GRN=GRANELLO, PUR=PURE, JCT=JAKARTA, NCP=NEW CONCEPT, ANT=ANTIQUE PET. Always append RUG.",
+      "",
+      "FINISHING: F=Folded Edges, S=Serged Edges. Default=Serged Edges",
+      "SHAPE: RT=Rectangular, RD=Round, O1=Organic 1, O2=Organic 2, O3=Organic 3, O4=Organic 4, O5=Organic 5. Default=Rectangular",
+      "",
+      "Modloft SKU: GOY-SST-F-RT-S-9X12 = GOYA RUG, Stripes Silver, Folded Edges, Rectangular, 9x12",
+      "MH2G SKU: MHL-VIS-S-O2-S_8x10 = MAHAL RUG, Vision, Serged Edges, Organic 2, 8x10",
+      "Via Star estimate: read Measurements, Shape, Color, Finishing fields directly",
+      "",
+      "SIZE: 9x12 = ft1=9 in1=0 ft2=12 in2=0. 13ft 3in x 10ft 1in = ft1=13 in1=3 ft2=10 in2=1",
+      "customer = buyer company name, NOT Via Star Rugs"
+    ].join("\n");
 
     const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -41,11 +84,10 @@ module.exports = async function handler(req, res) {
     });
 
     const data = await anthropicRes.json();
-
     if (data.error) return res.status(400).json({ error: "Anthropic error: " + data.error.message });
 
     const text = data.content && data.content[0] ? data.content[0].text : "";
-    if (!text) return res.status(400).json({ error: "Empty response from Claude", data: data });
+    if (!text) return res.status(400).json({ error: "Empty response from Claude" });
 
     const clean = text.replace(/```json|```/g, "").trim();
     try {
@@ -55,6 +97,6 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: "Could not parse Claude response", raw: text });
     }
   } catch(e) {
-    return res.status(500).json({ error: e.message, stack: e.stack });
+    return res.status(500).json({ error: e.message });
   }
 };
