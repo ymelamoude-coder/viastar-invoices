@@ -78,7 +78,7 @@ export default async function handler(req, res) {
         const productId = match?.node?.id;
 
         if (!productId) {
-          return res.status(400).json({ error: "Produto não encontrado: " + item.name });
+          return res.status(400).json({ error: "Produto não encontrado: " + item.name + " | Disponíveis: " + products.map(e => e.node.name).join(', ') });
         }
 
         formattedItems.push({
