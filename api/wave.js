@@ -64,10 +64,12 @@ export default async function handler(req, res) {
         }`, {});
 
         const products = searchData?.data?.business?.products?.edges || [];
-        const match = products.find(e =>
-          e.node.name.toUpperCase().includes(item.name.replace(' RUG','').toUpperCase()) ||
-          e.node.name.toUpperCase() === item.name.toUpperCase()
-        );
+        const match = products.find(e => {
+          const name = e.node.name.toUpperCase();
+          if (name.startsWith('Z ')) return false; // ignore renamed duplicates
+          return name.includes(item.name.replace(' RUG','').toUpperCase()) ||
+                 name === item.name.toUpperCase();
+        });
         const productId = match?.node?.id;
 
         if (!productId) {
