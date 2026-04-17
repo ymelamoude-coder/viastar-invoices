@@ -487,33 +487,39 @@ function fileToBase64(file) {
 }
 
 function applyExtractedData(parsed) {
+  console.log('Applying extracted data:', JSON.stringify(parsed));
+
   // Set customer
   if (parsed.customer) {
     const sel = document.getElementById('customerSelect');
-    const search = parsed.customer.toUpperCase();
+    const search = parsed.customer.toUpperCase().replace(/[^A-Z0-9 ]/g, '');
+    let bestMatch = -1, bestScore = 0;
     for (let i = 0; i < sel.options.length; i++) {
-      if (sel.options[i].text.toUpperCase().includes(search) || search.includes(sel.options[i].text.toUpperCase().replace(/[^A-Z]/g,''))) {
-        sel.selectedIndex = i;
-        break;
-      }
+      const opt = sel.options[i].text.toUpperCase().replace(/[^A-Z0-9 ]/g, '');
+      if (opt === search) { bestMatch = i; break; }
+      const words = search.split(' ').filter(w => w.length > 2);
+      const matches = words.filter(w => opt.includes(w)).length;
+      if (matches > bestScore) { bestScore = matches; bestMatch = i; }
     }
+    if (bestMatch > 0) sel.selectedIndex = bestMatch;
   }
 
-  // Clear existing items and add new ones
+  // Clear and rebuild items
   if (parsed.items && parsed.items.length > 0) {
     document.getElementById('itemsContainer').innerHTML = '';
     itemCount = 0;
 
-    parsed.items.forEach(item => {
+    parsed.items.forEach((item, idx) => {
       addItem();
       const n = itemCount;
 
       // Set product
       const prodSel = document.getElementById('prod-' + n);
-      if (prodSel) {
-        const prodName = item.product?.toUpperCase();
+      if (prodSel && item.product) {
+        const prodSearch = item.product.toUpperCase().replace(' RUG', '').trim();
         for (let i = 0; i < prodSel.options.length; i++) {
-          if (prodSel.options[i].value.toUpperCase() === prodName || prodSel.options[i].value.toUpperCase().includes(prodName?.replace(' RUG','')||'')) {
+          const opt = prodSel.options[i].value.toUpperCase().replace(' RUG', '').trim();
+          if (opt === prodSearch || opt.includes(prodSearch) || prodSearch.includes(opt)) {
             prodSel.selectedIndex = i;
             onProdChange(n);
             break;
@@ -521,66 +527,69 @@ function applyExtractedData(parsed) {
         }
       }
 
-      // Set color
+      // Wait for color dropdown to populate then set all fields
       setTimeout(() => {
-        const colorSel = document.getElementById('color-' + n);
-        if (colorSel && item.color) {
-          const colorSearch = item.color.toUpperCase();
-          for (let i = 0; i < colorSel.options.length; i++) {
-            if (colorSel.options[i].value.toUpperCase().includes(colorSearch) || colorSearch.includes(colorSel.options[i].value.toUpperCase())) {
-              colorSel.selectedIndex = i;
-              buildSKU(n);
-              break;
+        // Color
+        if (item.color) {
+          const colorSel = document.getElementById('color-' + n);
+          if (colorSel) {
+            const cs = item.color.toUpperCase();
+            for (let i = 0; i < colorSel.options.length; i++) {
+              const cv = colorSel.options[i].value.toUpperCase();
+              if (cv === cs || cv.includes(cs) || cs.includes(cv)) {
+                colorSel.selectedIndex = i; break;
+              }
             }
           }
         }
 
-        // Set finishing
-        const finSel = document.getElementById('fin-' + n);
-        if (finSel && item.finishing) {
-          for (let i = 0; i < finSel.options.length; i++) {
-            if (finSel.options[i].value.toUpperCase().includes(item.finishing.toUpperCase().split(' ')[0])) {
-              finSel.selectedIndex = i;
-              break;
+        // Finishing
+        if (item.finishing) {
+          const finSel = document.getElementById('fin-' + n);
+          if (finSel) {
+            const fs = item.finishing.toUpperCase();
+            for (let i = 0; i < finSel.options.length; i++) {
+              if (finSel.options[i].value.toUpperCase().includes(fs.split(' ')[0])) {
+                finSel.selectedIndex = i; break;
+              }
             }
           }
         }
 
-        // Set shape
-        const shapeSel = document.getElementById('shape-' + n);
-        if (shapeSel && item.shape) {
-          for (let i = 0; i < shapeSel.options.length; i++) {
-            if (shapeSel.options[i].value.toUpperCase() === item.shape.toUpperCase()) {
-              shapeSel.selectedIndex = i;
-              break;
+        // Shape
+        if (item.shape) {
+          const shapeSel = document.getElementById('shape-' + n);
+          if (shapeSel) {
+            const ss = item.shape.toUpperCase();
+            for (let i = 0; i < shapeSel.options.length; i++) {
+              if (shapeSel.options[i].value.toUpperCase() === ss) {
+                shapeSel.selectedIndex = i; break;
+              }
             }
           }
         }
 
-        // Set size
+        // Size — always Custom
         const sizeSel = document.getElementById('size-' + n);
-        if (sizeSel) {
-          sizeSel.value = 'Custom Size';
-          buildSKU(n);
-        }
+        if (sizeSel) { sizeSel.value = 'Custom Size'; onSizeChange(n); }
 
-        // Set measurements
-        if (item.ft1 !== undefined) { const el = document.getElementById('mft1-'+n); if(el) el.value = item.ft1; }
-        if (item.in1 !== undefined) { const el = document.getElementById('min1-'+n); if(el) el.value = item.in1 || 0; }
-        if (item.ft2 !== undefined) { const el = document.getElementById('mft2-'+n); if(el) el.value = item.ft2; }
-        if (item.in2 !== undefined) { const el = document.getElementById('min2-'+n); if(el) el.value = item.in2 || 0; }
+        // Measurements
+        if (item.ft1 != null) { const el = document.getElementById('mft1-'+n); if(el) el.value = item.ft1; }
+        if (item.in1 != null) { const el = document.getElementById('min1-'+n); if(el) el.value = item.in1 || 0; }
+        if (item.ft2 != null) { const el = document.getElementById('mft2-'+n); if(el) el.value = item.ft2; }
+        if (item.in2 != null) { const el = document.getElementById('min2-'+n); if(el) el.value = item.in2 || 0; }
 
-        // Set quantity
+        // Quantity
         const qtyEl = document.getElementById('qty-' + n);
         if (qtyEl && item.quantity) qtyEl.value = item.quantity;
 
-        // Set price
+        // Price — override auto-calculation with PO price
         const priceEl = document.getElementById('price-' + n);
-        if (priceEl && item.price) { priceEl.value = parseFloat(item.price).toFixed(2); }
+        if (priceEl && item.price) priceEl.value = parseFloat(item.price).toFixed(2);
 
         buildSKU(n);
         updateTotal();
-      }, 100);
+      }, 300 * (idx + 1));
     });
   }
 }
