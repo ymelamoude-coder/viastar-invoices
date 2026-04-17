@@ -57,23 +57,23 @@ export default async function handler(req, res) {
 
         const searchData = await gql(`query {
           business(id: "${BUSINESS_ID}") {
-            products(page: 1, pageSize: 50) {
+            products(page: 1, pageSize: 200) {
               edges { node { id name } }
             }
           }
         }`, {});
 
         const products = searchData?.data?.business?.products?.edges || [];
-        const searchName = item.name.toUpperCase();
-        const searchNameNoRug = searchName.replace(' RUG', '');
+        const searchName = item.name.toUpperCase().trim();
+        const searchNameNoRug = searchName.replace(' RUG', '').trim();
         const match = products.find(e => {
           const name = e.node.name.toUpperCase().trim();
-          if (name.startsWith('Z ')) return false; // ignore renamed duplicates
-          return name === searchName ||                          // exact: "MAHAL RUG"
-                 name === searchNameNoRug ||                     // exact: "MAHAL"
-                 name.includes(searchName) ||                    // contains full name
-                 name.includes(searchNameNoRug) ||               // contains name without RUG
-                 searchName.includes(name);                      // full name contains product name
+          if (name.startsWith('Z ')) return false;
+          return name === searchName ||
+                 name === searchNameNoRug ||
+                 name.includes(searchName) ||
+                 name.includes(searchNameNoRug) ||
+                 searchName.includes(name);
         });
         const productId = match?.node?.id;
 
