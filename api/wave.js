@@ -103,20 +103,34 @@ export default async function handler(req, res) {
           return i;
         });
 
+        // Try with minimal input first
+        const estimateInput = { 
+          businessId: BUSINESS_ID, 
+          customerId, 
+          items: estimateItems.map(i => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice
+          }))
+        };
+        
         const data = await gql(`mutation($input: EstimateCreateInput!) {
           estimateCreate(input: $input) {
             estimate { id estimateNumber viewUrl }
             didSucceed
             inputErrors { message }
           }
-        }`, { input: { businessId: BUSINESS_ID, customerId, items: estimateItems } });
+        }`, { input: estimateInput });
 
         if (data?.data?.estimateCreate?.didSucceed) {
           const est = data.data.estimateCreate.estimate;
           return res.status(200).json({ success: true, number: est.estimateNumber, viewUrl: est.viewUrl, type: "estimate" });
         } else {
-          const errs = data?.data?.estimateCreate?.inputErrors?.map(e => e.message).join(", ") || "unknown";
-          return res.status(400).json({ error: "Erro ao criar estimate: " + errs + " | fields: " + fields.join(',') + " | debug: " + JSON.stringify(data) });
+          return res.status(400).json({ 
+            error: "Erro estimate", 
+            sentInput: JSON.stringify(estimateInput),
+            waveResponse: JSON.stringify(data) 
+          });
         }
       } else {
         const data = await gql(`mutation($input: InvoiceCreateInput!) {
