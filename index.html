@@ -75,7 +75,14 @@
     .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
     .label-btn { width: 100%; height: 50px; background: none; color: var(--accent); border: 2px solid var(--accent); border-radius: var(--radius); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 10px; transition: all .15s; }
-    .label-btn:hover { background: var(--accent-light); } padding: 14px 16px; border-radius: 10px; font-size: 14px; margin-top: 12px; line-height: 1.5; }
+    .label-btn:hover { background: var(--accent-light); }
+    .upload-area { border: 1.5px dashed var(--border2); border-radius: var(--radius-sm); padding: 1.5rem; text-align: center; cursor: pointer; transition: all .15s; }
+    .upload-area:hover { border-color: var(--accent); background: var(--accent-light); }
+    .upload-icon { font-size: 28px; margin-bottom: 8px; color: var(--muted); }
+    .upload-text { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+    .upload-sub { font-size: 12px; color: var(--muted); }
+    .upload-area.dragging { border-color: var(--accent); background: var(--accent-light); }
+    .status { display: none; padding: 14px 16px; border-radius: 10px; font-size: 14px; margin-top: 12px; line-height: 1.5; }
     .status.success { display: block; background: var(--success-bg); color: var(--success); border: 1px solid #b6e8cc; }
     .status.error { display: block; background: var(--danger-bg); color: var(--danger); border: 1px solid #f5c4bc; }
     .status a { color: inherit; font-weight: 500; }
@@ -89,6 +96,18 @@
   <div class="type-toggle">
     <button class="type-btn active" id="btn-invoice" onclick="setType('invoice')">Invoice</button>
     <button class="type-btn" id="btn-estimate" onclick="setType('estimate')">Estimate</button>
+  </div>
+
+  <div class="card" id="uploadCard">
+    <p class="card-label">Importar PDF</p>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Faça upload de um PO ou estimate para preencher automaticamente</p>
+    <div class="upload-area" id="uploadArea" onclick="document.getElementById('pdfInput').click()">
+      <input type="file" id="pdfInput" accept=".pdf" style="display:none" onchange="handlePDF(this)">
+      <div class="upload-icon">↑</div>
+      <p class="upload-text">Clique para selecionar um PDF</p>
+      <p class="upload-sub">PO ou Estimate de qualquer cliente</p>
+    </div>
+    <div id="uploadStatus" style="display:none;margin-top:12px;"></div>
   </div>
 
   <div class="card">
@@ -420,6 +439,226 @@ async function loadCustomers() {
     sel.innerHTML = '<option value="">Erro ao carregar clientes</option>';
   }
 }
+
+// PDF Upload & Claude AI parsing
+async function handlePDF(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById('uploadStatus');
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '<div style="color:var(--muted);font-size:13px;">Lendo PDF com IA...</div>';
+
+  const uploadArea = document.getElementById('uploadArea');
+  uploadArea.style.opacity = '0.5';
+  uploadArea.style.pointerEvents = 'none';
+
+  try {
+    // Convert PDF to base64
+    const base64 = await fileToBase64(file);
+
+    // Call Claude API to extract data
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'document',
+              source: { type: 'base64', media_type: 'application/pdf', data: base64 }
+            },
+            {
+              type: 'text',
+              text: `Extract the purchase order or estimate data from this PDF and return ONLY valid JSON, no markdown, no explanation.
+
+Return this exact structure:
+{
+  "customer": "customer company name",
+  "items": [
+    {
+      "product": "product name (e.g. LOMBOK RUG, GOYA RUG, MAHAL RUG)",
+      "color": "color name",
+      "shape": "shape (Rectangular, Round, Organic 1, etc) - use Rectangular if not specified",
+      "finishing": "Serged Edges or Folded Edges - use Serged Edges if not specified",
+      "measurements": "e.g. 8ft × 10ft or 9ft × 12ft",
+      "ft1": number,
+      "in1": number,
+      "ft2": number,
+      "in2": number,
+      "quantity": number,
+      "price": number
+    }
+  ]
+}
+
+Rules:
+- For product name: extract the rug type (LOMBOK, GOYA, MAHAL, DAYTONA, etc) and append RUG
+- For MH2G POs: decode the SKU code (e.g. MHL-VIS-S-O2-S_8x10 = MAHAL RUG, Vision color, Serged, Organic 2, 8x10)
+- For Modloft POs: decode SKU (e.g. GOY-SST-F-RT-S-9X12 = GOYA RUG, Stripes Silver, Folded, Rectangular, 9x12)
+- For Neiman POs: parse description text (e.g. "lombok 18 silver 8x10" = LOMBOK RUG, 18 Silver, 8ft × 10ft)
+- Extract ft and inches separately for measurements
+- If size is like "8x10" or "8' x 10'" → ft1=8, in1=0, ft2=10, in2=0
+- customer should match one of the Wave customers (use the company name from the PO header)`
+            }
+          ]
+        })
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '{}';
+    let parsed;
+    try {
+      parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    } catch(e) {
+      throw new Error('Não foi possível interpretar o PDF. Tente novamente.');
+    }
+
+    // Apply extracted data to form
+    applyExtractedData(parsed);
+
+    statusEl.innerHTML = `<div style="color:var(--success);font-size:13px;background:var(--success-bg);padding:10px 14px;border-radius:8px;">PDF importado com sucesso! Revise os dados abaixo.</div>`;
+
+  } catch(e) {
+    statusEl.innerHTML = `<div style="color:var(--danger);font-size:13px;background:var(--danger-bg);padding:10px 14px;border-radius:8px;">Erro: ${e.message}</div>`;
+  }
+
+  uploadArea.style.opacity = '1';
+  uploadArea.style.pointerEvents = 'auto';
+  input.value = '';
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function applyExtractedData(parsed) {
+  // Set customer
+  if (parsed.customer) {
+    const sel = document.getElementById('customerSelect');
+    const search = parsed.customer.toUpperCase();
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].text.toUpperCase().includes(search) || search.includes(sel.options[i].text.toUpperCase().replace(/[^A-Z]/g,''))) {
+        sel.selectedIndex = i;
+        break;
+      }
+    }
+  }
+
+  // Clear existing items and add new ones
+  if (parsed.items && parsed.items.length > 0) {
+    document.getElementById('itemsContainer').innerHTML = '';
+    itemCount = 0;
+
+    parsed.items.forEach(item => {
+      addItem();
+      const n = itemCount;
+
+      // Set product
+      const prodSel = document.getElementById('prod-' + n);
+      if (prodSel) {
+        const prodName = item.product?.toUpperCase();
+        for (let i = 0; i < prodSel.options.length; i++) {
+          if (prodSel.options[i].value.toUpperCase() === prodName || prodSel.options[i].value.toUpperCase().includes(prodName?.replace(' RUG','')||'')) {
+            prodSel.selectedIndex = i;
+            onProdChange(n);
+            break;
+          }
+        }
+      }
+
+      // Set color
+      setTimeout(() => {
+        const colorSel = document.getElementById('color-' + n);
+        if (colorSel && item.color) {
+          const colorSearch = item.color.toUpperCase();
+          for (let i = 0; i < colorSel.options.length; i++) {
+            if (colorSel.options[i].value.toUpperCase().includes(colorSearch) || colorSearch.includes(colorSel.options[i].value.toUpperCase())) {
+              colorSel.selectedIndex = i;
+              buildSKU(n);
+              break;
+            }
+          }
+        }
+
+        // Set finishing
+        const finSel = document.getElementById('fin-' + n);
+        if (finSel && item.finishing) {
+          for (let i = 0; i < finSel.options.length; i++) {
+            if (finSel.options[i].value.toUpperCase().includes(item.finishing.toUpperCase().split(' ')[0])) {
+              finSel.selectedIndex = i;
+              break;
+            }
+          }
+        }
+
+        // Set shape
+        const shapeSel = document.getElementById('shape-' + n);
+        if (shapeSel && item.shape) {
+          for (let i = 0; i < shapeSel.options.length; i++) {
+            if (shapeSel.options[i].value.toUpperCase() === item.shape.toUpperCase()) {
+              shapeSel.selectedIndex = i;
+              break;
+            }
+          }
+        }
+
+        // Set size
+        const sizeSel = document.getElementById('size-' + n);
+        if (sizeSel) {
+          sizeSel.value = 'Custom Size';
+          buildSKU(n);
+        }
+
+        // Set measurements
+        if (item.ft1 !== undefined) { const el = document.getElementById('mft1-'+n); if(el) el.value = item.ft1; }
+        if (item.in1 !== undefined) { const el = document.getElementById('min1-'+n); if(el) el.value = item.in1 || 0; }
+        if (item.ft2 !== undefined) { const el = document.getElementById('mft2-'+n); if(el) el.value = item.ft2; }
+        if (item.in2 !== undefined) { const el = document.getElementById('min2-'+n); if(el) el.value = item.in2 || 0; }
+
+        // Set quantity
+        const qtyEl = document.getElementById('qty-' + n);
+        if (qtyEl && item.quantity) qtyEl.value = item.quantity;
+
+        // Set price
+        const priceEl = document.getElementById('price-' + n);
+        if (priceEl && item.price) { priceEl.value = parseFloat(item.price).toFixed(2); }
+
+        buildSKU(n);
+        updateTotal();
+      }, 100);
+    });
+  }
+}
+
+// Drag and drop support
+document.addEventListener('DOMContentLoaded', () => {
+  const area = document.getElementById('uploadArea');
+  if (!area) return;
+  area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('dragging'); });
+  area.addEventListener('dragleave', () => area.classList.remove('dragging'));
+  area.addEventListener('drop', e => {
+    e.preventDefault();
+    area.classList.remove('dragging');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') {
+      const input = document.getElementById('pdfInput');
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      handlePDF(input);
+    }
+  });
+});
 
 loadCustomers();
 addItem();
