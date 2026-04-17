@@ -528,86 +528,67 @@ function applyExtractedData(parsed) {
         addItem();
         const n = itemCount;
 
-        // Set product first, then wait for dependent dropdowns to update
+        // Step 1: Set product immediately
         const prodSel = document.getElementById('prod-' + n);
         if (prodSel && item.product) {
           const prodSearch = item.product.toUpperCase().replace(' RUG', '').trim();
           for (let i = 0; i < prodSel.options.length; i++) {
             const opt = prodSel.options[i].value.toUpperCase().replace(' RUG', '').trim();
             if (opt === prodSearch || opt.includes(prodSearch) || prodSearch.includes(opt)) {
-              prodSel.selectedIndex = i;
+              prodSel.value = prodSel.options[i].value;
               onProdChange(n);
               break;
             }
           }
         }
 
-        // Wait for onProdChange to populate colors and sizes
+        // Step 2: After onProdChange populates colors/sizes, fill the rest
         setTimeout(() => {
-          // Color - exact match first, then partial
-          if (item.color) {
-            const colorSel = document.getElementById('color-' + n);
-            if (colorSel) {
-              const cs = item.color.toUpperCase().trim();
-              let found = false;
-              for (let i = 0; i < colorSel.options.length; i++) {
-                if (colorSel.options[i].value.toUpperCase().trim() === cs) {
-                  colorSel.selectedIndex = i; found = true; break;
-                }
-              }
-              if (!found) {
-                for (let i = 0; i < colorSel.options.length; i++) {
-                  const cv = colorSel.options[i].value.toUpperCase().trim();
-                  if (cv.includes(cs) || cs.includes(cv)) {
-                    colorSel.selectedIndex = i; break;
-                  }
-                }
+          // Color
+          const colorSel = document.getElementById('color-' + n);
+          if (colorSel && item.color) {
+            const cs = item.color.toUpperCase().trim();
+            for (let i = 0; i < colorSel.options.length; i++) {
+              const cv = colorSel.options[i].value.toUpperCase().trim();
+              if (cv === cs || cv.includes(cs) || cs.includes(cv)) {
+                colorSel.selectedIndex = i; break;
               }
             }
           }
 
           // Finishing
-          if (item.finishing) {
-            const finSel = document.getElementById('fin-' + n);
-            if (finSel) {
-              const fs = item.finishing.toUpperCase();
-              for (let i = 0; i < finSel.options.length; i++) {
-                if (finSel.options[i].value.toUpperCase().includes(fs.split(' ')[0])) {
-                  finSel.selectedIndex = i; break;
-                }
+          const finSel = document.getElementById('fin-' + n);
+          if (finSel && item.finishing) {
+            const fs = item.finishing.toUpperCase();
+            for (let i = 0; i < finSel.options.length; i++) {
+              if (finSel.options[i].value.toUpperCase().includes(fs.split(' ')[0])) {
+                finSel.selectedIndex = i; break;
               }
             }
           }
 
           // Shape
-          if (item.shape) {
-            const shapeSel = document.getElementById('shape-' + n);
-            if (shapeSel) {
-              const ss = item.shape.toUpperCase();
-              for (let i = 0; i < shapeSel.options.length; i++) {
-                if (shapeSel.options[i].value.toUpperCase() === ss) {
-                  shapeSel.selectedIndex = i; break;
-                }
+          const shapeSel = document.getElementById('shape-' + n);
+          if (shapeSel && item.shape) {
+            for (let i = 0; i < shapeSel.options.length; i++) {
+              if (shapeSel.options[i].value.toUpperCase() === item.shape.toUpperCase()) {
+                shapeSel.selectedIndex = i; break;
               }
             }
           }
 
-          // Size — check if standard size exists for this product
+          // Size — check standard first
           const sizeSel = document.getElementById('size-' + n);
           if (sizeSel && item.ft1 != null) {
-            const totalIn1 = (item.ft1 || 0) * 12 + (item.in1 || 0);
-            const totalIn2 = (item.ft2 || 0) * 12 + (item.in2 || 0);
             const ft1 = item.ft1 || 0, ft2 = item.ft2 || 0;
-            // Try to match standard size
+            const in1 = item.in1 || 0, in2 = item.in2 || 0;
             let matched = false;
-            for (let i = 0; i < sizeSel.options.length; i++) {
-              const opt = sizeSel.options[i].value;
-              if (!opt || opt === 'Custom Size') continue;
-              // Parse option like "10'x13'" or "9'x12'"
-              const parts = opt.replace(/['"]/g,'').split('x');
-              if (parts.length === 2) {
-                const of1 = parseFloat(parts[0]), of2 = parseFloat(parts[1]);
-                if (of1 === ft1 && of2 === ft2 && (item.in1 || 0) === 0 && (item.in2 || 0) === 0) {
+            if (in1 === 0 && in2 === 0) {
+              for (let i = 0; i < sizeSel.options.length; i++) {
+                const opt = sizeSel.options[i].value;
+                if (!opt || opt === 'Custom Size') continue;
+                const parts = opt.replace(/['"]/g,'').split('x');
+                if (parts.length === 2 && parseFloat(parts[0]) === ft1 && parseFloat(parts[1]) === ft2) {
                   sizeSel.selectedIndex = i; matched = true; break;
                 }
               }
@@ -616,22 +597,20 @@ function applyExtractedData(parsed) {
           }
 
           // Measurements
-          if (item.ft1 != null) { const el = document.getElementById('mft1-'+n); if(el) el.value = item.ft1; }
-          if (item.in1 != null) { const el = document.getElementById('min1-'+n); if(el) el.value = item.in1 || 0; }
-          if (item.ft2 != null) { const el = document.getElementById('mft2-'+n); if(el) el.value = item.ft2; }
-          if (item.in2 != null) { const el = document.getElementById('min2-'+n); if(el) el.value = item.in2 || 0; }
+          const mft1 = document.getElementById('mft1-'+n); if(mft1) mft1.value = item.ft1 || 0;
+          const min1 = document.getElementById('min1-'+n); if(min1) min1.value = item.in1 || 0;
+          const mft2 = document.getElementById('mft2-'+n); if(mft2) mft2.value = item.ft2 || 0;
+          const min2 = document.getElementById('min2-'+n); if(min2) min2.value = item.in2 || 0;
 
-          // Quantity
+          // Quantity and Price
           const qtyEl = document.getElementById('qty-' + n);
           if (qtyEl && item.quantity) qtyEl.value = item.quantity;
-
-          // Price
           const priceEl = document.getElementById('price-' + n);
           if (priceEl && item.price) priceEl.value = parseFloat(item.price).toFixed(2);
 
           buildSKU(n);
           updateTotal();
-        }, 800 * (idx + 1));
+        }, 200);
       });
     }
   });
