@@ -102,8 +102,8 @@ export default async function handler(req, res) {
           const est = data.data.estimateCreate.estimate;
           return res.status(200).json({ success: true, number: est.estimateNumber, viewUrl: est.viewUrl, type: "estimate" });
         } else {
-          const errs = data?.data?.estimateCreate?.inputErrors?.map(e => e.message).join(", ");
-          return res.status(400).json({ error: "Erro ao criar estimate: " + errs });
+          const errs = data?.data?.estimateCreate?.inputErrors?.map(e => e.message).join(", ") || "unknown";
+          return res.status(400).json({ error: "Erro ao criar estimate: " + errs + " | debug: " + JSON.stringify(data) });
         }
       } else {
         const data = await gql(`mutation($input: InvoiceCreateInput!) {
