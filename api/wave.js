@@ -90,20 +90,33 @@ export default async function handler(req, res) {
       }
 
       if (docType === "estimate") {
+        // Check EstimateCreateItemInput fields
+        const introData = await gql(`query GetType($name: String!) { __type(name: $name) { inputFields { name type { name kind ofType { name } } } } }`, { name: "EstimateCreateItemInput" });
+        const fields = introData?.data?.__type?.inputFields?.map(f => f.name) || [];
+        
+        // Build items based on available fields
+        const estimateItems = formattedItems.map(item => {
+          const i = { productId: item.productId, quantity: item.quantity };
+          if (fields.includes('unitPrice')) i.unitPrice = item.unitPrice;
+          if (fields.includes('unitAmount')) i.unitAmount = item.unitPrice;
+          if (fields.includes('description')) i.description = item.description;
+          return i;
+        });
+
         const data = await gql(`mutation($input: EstimateCreateInput!) {
           estimateCreate(input: $input) {
             estimate { id estimateNumber viewUrl }
             didSucceed
             inputErrors { message }
           }
-        }`, { input: { businessId: BUSINESS_ID, customerId, items: formattedItems } });
+        }`, { input: { businessId: BUSINESS_ID, customerId, items: estimateItems } });
 
         if (data?.data?.estimateCreate?.didSucceed) {
           const est = data.data.estimateCreate.estimate;
           return res.status(200).json({ success: true, number: est.estimateNumber, viewUrl: est.viewUrl, type: "estimate" });
         } else {
           const errs = data?.data?.estimateCreate?.inputErrors?.map(e => e.message).join(", ") || "unknown";
-          return res.status(400).json({ error: "Erro ao criar estimate: " + errs + " | debug: " + JSON.stringify(data) });
+          return res.status(400).json({ error: "Erro ao criar estimate: " + errs + " | fields: " + fields.join(',') + " | debug: " + JSON.stringify(data) });
         }
       } else {
         const data = await gql(`mutation($input: InvoiceCreateInput!) {
