@@ -60,6 +60,49 @@ module.exports = async function handler(req, res) {
     } catch (e) { return res.status(500).json({ error: e.message }); }
   }
 
+  if (req.method === "GET" && req.query.action === "invoice") {
+    try {
+      const invoiceNumber = req.query.number;
+      if (!invoiceNumber) return res.status(400).json({ error: "Informe o número da invoice" });
+      // Search through invoices - Wave returns them ordered by recent first
+      let found = null;
+      for (let page = 1; page <= 20; page++) {
+        const data = await gql(`query { business(id: "${BUSINESS_ID}") { invoices(page: ${page}, pageSize: 50) { edges { node { id invoiceNumber customer { name } items { product { name } description quantity unitPrice { value } } } } pageInfo { currentPage totalPages } } } }`, {});
+        const invoices = data?.data?.business?.invoices?.edges || [];
+        found = invoices.find(e => String(e.node.invoiceNumber) === String(invoiceNumber));
+        if (found) break;
+        const info = data?.data?.business?.invoices?.pageInfo;
+        if (!info || page >= info.totalPages) break;
+      }
+      if (!found) return res.status(404).json({ error: "Invoice " + invoiceNumber + " não encontrada." });
+      const inv = found.node;
+      // Parse items from description
+      const items = inv.items.map(it => {
+        const desc = it.description || "";
+        const meas = (desc.match(/Measurements:\s*([^\n]+)/i) || [])[1] || "";
+        const shape = (desc.match(/Shape:\s*([^\n]+)/i) || [])[1] || "Rectangular";
+        const color = (desc.match(/Color:\s*([^\n]+)/i) || [])[1] || "";
+        const finishing = (desc.match(/Finishing:\s*([^\n]+)/i) || [])[1] || "";
+        const sku = (desc.match(/SKU:\s*([^\n]+)/i) || [])[1] || "";
+        return {
+          name: it.product?.name || "",
+          measurements: meas.trim(),
+          shape: shape.trim(),
+          color: color.trim(),
+          finishing: finishing.trim(),
+          sku: sku.trim(),
+          quantity: parseInt(it.quantity) || 1,
+          price: it.unitPrice?.value || 0
+        };
+      });
+      return res.status(200).json({
+        invoiceNumber: inv.invoiceNumber,
+        customerName: inv.customer?.name || "",
+        items
+      });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+  }
+
   if (req.method === "POST") {
     try {
       const { customerId, items, docType } = req.body;

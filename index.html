@@ -131,6 +131,7 @@
   <div class="loading-bar" id="loadingBar"></div>
   <button class="submit-btn" id="submitBtn" onclick="submitDoc()">Criar invoice no Wave</button>
   <button class="label-btn" id="labelBtn" onclick="generateLabels()" style="display:none;">Gerar etiquetas</button>
+  <button class="label-btn" id="existingInvoiceBtn" onclick="generateLabelsForExisting()" style="margin-top:8px;background:#fff;color:#000;border:1px solid #000;">Gerar etiquetas de invoice existente</button>
   <div class="status" id="statusMsg"></div>
 </div>
 
@@ -162,6 +163,37 @@ const PRODUCT_INFO = {
   "TANZANIA RUG":    { origin: "Holland", material: "100% Nylon" },
   "VELVET RUG":      { origin: "Belgium", material: "100% Polyester" }
 };
+
+async function generateLabelsForExisting() {
+  const number = prompt('Digite o número da invoice existente:');
+  if (!number || !number.trim()) return;
+
+  const btn = document.getElementById('existingInvoiceBtn');
+  const originalText = btn.textContent;
+  btn.textContent = 'Buscando invoice no Wave...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/wave?action=invoice&number=' + encodeURIComponent(number.trim()));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao buscar invoice');
+    // Set lastInvoiceData and reuse generateLabels
+    lastInvoiceData = {
+      invoiceNumber: data.invoiceNumber,
+      customerName: data.customerName,
+      items: data.items
+    };
+    // Temporarily show labelBtn as visible so generateLabels works
+    document.getElementById('labelBtn').style.display = 'block';
+    btn.textContent = originalText;
+    btn.disabled = false;
+    // Trigger label generation
+    generateLabels();
+  } catch(e) {
+    btn.textContent = 'Erro: ' + e.message;
+    setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 3000);
+  }
+}
 
 function generateLabels() {
   if (!lastInvoiceData) return;
