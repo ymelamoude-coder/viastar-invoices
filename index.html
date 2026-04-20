@@ -355,10 +355,17 @@ async function drawProductionLabel(data) {
 
   const invNum = `${invoiceNumber}-${copyNum}`;
 
+  // Calculate title font size based on length
+  const titleLen = title.length;
+  let titleSize = 170;
+  if (titleLen > 20) titleSize = 140;
+  if (titleLen > 25) titleSize = 120;
+  if (titleLen > 30) titleSize = 100;
+
   const html = `
     <div style="width:1800px;height:1200px;background:white;position:relative;padding:70px 90px;box-sizing:border-box;font-family:'Times New Roman',Times,serif;color:black;display:flex;flex-direction:column;justify-content:space-between;">
       <div>
-        <div style="font-size:170px;font-weight:400;line-height:1;letter-spacing:-2px;">${title}</div>
+        <div style="font-size:${titleSize}px;font-weight:400;line-height:1;letter-spacing:-2px;word-break:break-word;">${title}</div>
         <div style="font-size:200px;font-weight:700;line-height:1;margin-top:20px;letter-spacing:-3px;">${finPT}</div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:40px;">
