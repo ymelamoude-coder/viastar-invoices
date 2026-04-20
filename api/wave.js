@@ -72,7 +72,7 @@ module.exports = async function handler(req, res) {
       let lastRaw = null;
 
       for (let page = 1; page <= 50; page++) {
-        const query = `query { business(id: "${BUSINESS_ID}") { invoices(page: ${page}, pageSize: 50) { pageInfo { currentPage totalPages totalCount } edges { node { id invoiceNumber customer { name } items { product { id name } description quantity unitPrice } } } } } }`;
+        const query = `query { business(id: "${BUSINESS_ID}") { invoices(page: ${page}, pageSize: 50) { pageInfo { currentPage totalPages totalCount } edges { node { id invoiceNumber memo customer { name } items { product { id name } description quantity unitPrice } } } } } }`;
         const data = await gql(query, {});
 
         if (data?.errors) { lastError = JSON.stringify(data.errors); break; }
@@ -93,6 +93,7 @@ module.exports = async function handler(req, res) {
       });
 
       const inv = found.node;
+      const poNumber = inv.memo ? ((inv.memo.match(/PO:\s*(.+)/i) || [])[1] || '').trim() : '';
       const items = inv.items.map(it => {
         const desc = it.description || "";
         const meas = (desc.match(/Measurements:\s*([^\n]+)/i) || [])[1] || "";
@@ -114,6 +115,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({
         invoiceNumber: inv.invoiceNumber,
         customerName: inv.customer?.name || "",
+        poNumber,
         items
       });
     } catch (e) { return res.status(500).json({ error: e.message, stack: e.stack }); }
@@ -121,7 +123,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === "POST") {
     try {
-      const { customerId, items, docType } = req.body;
+      const { customerId, items, docType, poNumber } = req.body;
       if (!customerId || !items || items.length === 0) return res.status(400).json({ error: "Dados incompletos." });
 
       const formattedItems = [];
@@ -135,6 +137,9 @@ module.exports = async function handler(req, res) {
       }
 
       const input = { businessId: BUSINESS_ID, customerId, items: formattedItems };
+      if (poNumber && poNumber.trim()) {
+        input.memo = "PO: " + poNumber.trim();
+      }
 
       if (docType === "estimate") {
         const data = await gql(`mutation($input: EstimateCreateInput!) { estimateCreate(input: $input) { estimate { id estimateNumber viewUrl } didSucceed inputErrors { message } } }`, { input });

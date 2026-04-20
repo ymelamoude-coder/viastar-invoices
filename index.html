@@ -116,6 +116,10 @@
       <label>Selecionar cliente</label>
       <select id="customerSelect"><option value="">Carregando clientes...</option></select>
     </div>
+    <div class="field" style="margin-top:12px;">
+      <label>PO # (opcional)</label>
+      <input type="text" id="poNumber" placeholder="Ex: PO-12345" />
+    </div>
   </div>
 
   <div class="card">
@@ -181,7 +185,8 @@ async function generateLabelsForExisting() {
     lastInvoiceData = {
       invoiceNumber: data.invoiceNumber,
       customerName: data.customerName,
-      items: data.items
+      items: data.items,
+      poNumber: data.poNumber || ''
     };
     // Temporarily show labelBtn as visible so generateLabels works
     document.getElementById('labelBtn').style.display = 'block';
@@ -197,7 +202,7 @@ async function generateLabelsForExisting() {
 
 function generateLabels() {
   if (!lastInvoiceData) return;
-  const { invoiceNumber, customerName, items } = lastInvoiceData;
+  const { invoiceNumber, customerName, items, poNumber } = lastInvoiceData;
 
   // Show loading
   const btn = document.getElementById('labelBtn');
@@ -268,7 +273,7 @@ function generateLabels() {
         folder.file(`${productName}_${item.color}_${copyNum}_product.png`, prodBlob);
 
         // Customer label
-        const custCanvas = await drawCustomerLabel({ customerName, invoiceNumber });
+        const custCanvas = await drawCustomerLabel({ customerName, invoiceNumber, poNumber });
         const custBlob = await canvasToBlob(custCanvas);
         folder.file(`${productName}_${item.color}_${copyNum}_customer.png`, custBlob);
       }
@@ -340,10 +345,12 @@ async function drawProductLabel(data) {
 
 async function drawCustomerLabel(data) {
   const name = data.customerName.toUpperCase();
+  const poLine = data.poNumber ? `<div style="font-size:140px;text-align:center;line-height:1.1;margin-top:20px;">PO: ${data.poNumber}</div>` : '';
   const html = `
     <div style="width:1800px;height:1200px;background:white;position:relative;transform:rotate(180deg);transform-origin:center;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Times New Roman',Times,serif;font-weight:700;">
       <div style="font-size:280px;text-align:center;line-height:1.1;max-width:1700px;word-wrap:break-word;">${name}</div>
       <div style="font-size:280px;text-align:center;line-height:1.1;margin-top:30px;">${data.invoiceNumber}</div>
+      ${poLine}
     </div>`;
 
   return await htmlToCanvas(html, 1800, 1200);
@@ -519,19 +526,22 @@ async function submitDoc() {
   btn.disabled=true; bar.classList.add('active'); status.style.display='none';
   btn.textContent = docType==='invoice' ? 'Criando invoice...' : 'Criando estimate...';
 
+  const poNumber = document.getElementById('poNumber')?.value?.trim() || '';
+
   try {
     const res=await fetch('/api/wave', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({customerId, items, docType})
+      body:JSON.stringify({customerId, items, docType, poNumber})
     });
     const data=await res.json();
     if (data.success) {
       const label=docType==='invoice'?'Invoice':'Estimate';
       const customerName = document.getElementById('customerSelect').options[document.getElementById('customerSelect').selectedIndex].text;
-      lastInvoiceData = { invoiceNumber: data.number, customerName, items };
+      lastInvoiceData = { invoiceNumber: data.number, customerName, items, poNumber };
       document.getElementById('labelBtn').style.display = 'block';
       showStatus(`${label} <strong>#${data.number}</strong> criado com sucesso! <a href="${data.viewUrl}" target="_blank">Ver no Wave →</a>`,'success');
       document.getElementById('customerSelect').value='';
+      document.getElementById('poNumber').value='';
       document.getElementById('itemsContainer').innerHTML='';
       itemCount=0; addItem(); updateTotal();
     } else {
