@@ -102,10 +102,10 @@
     <p class="card-label">Importar PDF</p>
     <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Faça upload de um PO ou estimate para preencher automaticamente</p>
     <div class="upload-area" id="uploadArea" onclick="document.getElementById('pdfInput').click()">
-      <input type="file" id="pdfInput" accept=".pdf" style="display:none" onchange="handlePDF(this)">
+      <input type="file" id="pdfInput" accept=".pdf,.jpg,.jpeg,.png,image/jpeg,image/png,application/pdf" style="display:none" onchange="handlePDF(this)">
       <div class="upload-icon">↑</div>
-      <p class="upload-text">Clique para selecionar um PDF</p>
-      <p class="upload-sub">PO ou Estimate de qualquer cliente</p>
+      <p class="upload-text">Clique para selecionar um arquivo</p>
+      <p class="upload-sub">PDF, JPG ou PNG (PO ou Estimate)</p>
     </div>
     <div id="uploadStatus" style="display:none;margin-top:12px;"></div>
   </div>
@@ -580,7 +580,7 @@ async function handlePDF(input) {
 
   const statusEl = document.getElementById('uploadStatus');
   statusEl.style.display = 'block';
-  statusEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:10px 14px;background:var(--color-background-secondary);border-radius:8px;">Lendo PDF com IA...</div>';
+  statusEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:10px 14px;background:var(--color-background-secondary);border-radius:8px;">Lendo arquivo com IA...</div>';
 
   const uploadArea = document.getElementById('uploadArea');
   uploadArea.style.opacity = '0.5';
@@ -592,14 +592,14 @@ async function handlePDF(input) {
     const response = await fetch('/api/parse-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pdfBase64: base64 })
+      body: JSON.stringify({ pdfBase64: base64, mimeType: file.type })
     });
 
     const parsed = await response.json();
-    if (!response.ok) throw new Error(parsed.error || 'Erro ao processar PDF');
+    if (!response.ok) throw new Error(parsed.error || 'Erro ao processar arquivo');
 
     applyExtractedData(parsed);
-    statusEl.innerHTML = `<div style="color:var(--success);font-size:13px;background:var(--success-bg);padding:10px 14px;border-radius:8px;">PDF importado! Revise os dados abaixo antes de criar a invoice.</div>`;
+    statusEl.innerHTML = `<div style="color:var(--success);font-size:13px;background:var(--success-bg);padding:10px 14px;border-radius:8px;">Arquivo importado! Revise os dados abaixo antes de criar a invoice.</div>`;
 
   } catch(e) {
     statusEl.innerHTML = `<div style="color:var(--danger);font-size:13px;background:var(--danger-bg);padding:10px 14px;border-radius:8px;">Erro: ${e.message}</div>`;
@@ -675,6 +675,12 @@ function applyExtractedData(parsed) {
         if (matches > bestScore) { bestScore = matches; bestMatch = i; }
       }
       if (bestMatch > 0) sel.selectedIndex = bestMatch;
+    }
+
+    // Set PO number
+    if (parsed.poNumber) {
+      const poEl = document.getElementById('poNumber');
+      if (poEl) poEl.value = parsed.poNumber;
     }
 
     if (!parsed.items || parsed.items.length === 0) return;
@@ -799,7 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     area.classList.remove('dragging');
     const file = e.dataTransfer.files[0];
-    if (file && file.type === 'application/pdf') {
+    if (file && (file.type === 'application/pdf' || file.type.startsWith('image/'))) {
       const input = document.getElementById('pdfInput');
       const dt = new DataTransfer();
       dt.items.add(file);
