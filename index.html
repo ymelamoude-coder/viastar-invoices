@@ -276,6 +276,17 @@ function generateLabels() {
         const custCanvas = await drawCustomerLabel({ customerName, invoiceNumber, poNumber });
         const custBlob = await canvasToBlob(custCanvas);
         folder.file(`${productName}_${item.color}_${copyNum}_customer.png`, custBlob);
+
+        // Production label (provisional)
+        const prodLabelCanvas = await drawProductionLabel({
+          productName: item.name.replace(' RUG', '').toUpperCase(),
+          color: item.color, shape: item.shape, finishing: item.finishing,
+          ft1: parseFt(measStr, 0), in1: parseIn(measStr, 0),
+          ft2: parseFt(measStr, 1), in2: parseIn(measStr, 1),
+          invoiceNumber, copyNum
+        });
+        const prodLabelBlob = await canvasToBlob(prodLabelCanvas);
+        folder.file(`${productName}_${item.color}_${copyNum}_production.png`, prodLabelBlob);
       }
 
       // Download zip
@@ -299,6 +310,61 @@ function generateLabels() {
 
 function canvasToBlob(canvas) {
   return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+}
+
+// Helper to parse "12ft 2in × 9ft" format
+function parseFt(measStr, idx) {
+  const parts = measStr.split(/[x×]/i);
+  if (!parts[idx]) return 0;
+  const m = parts[idx].match(/(\d+)\s*ft/i);
+  return m ? parseInt(m[1]) : 0;
+}
+function parseIn(measStr, idx) {
+  const parts = measStr.split(/[x×]/i);
+  if (!parts[idx]) return 0;
+  const m = parts[idx].match(/(\d+)\s*in/i);
+  return m ? parseInt(m[1]) : 0;
+}
+
+async function drawProductionLabel(data) {
+  const { productName, color, shape, finishing, ft1, in1, ft2, in2, invoiceNumber, copyNum } = data;
+
+  // Build title line: "SPOT SAND - ORG 3" or "SPOT SAND" or "SPOT SAND - ROUND"
+  const shapeMap = {
+    'Organic 1': 'ORG 1', 'Organic 2': 'ORG 2', 'Organic 3': 'ORG 3',
+    'Organic 4': 'ORG 4', 'Organic 5': 'ORG 5', 'Organic 5Q': 'ORG 5Q',
+    'Organic 5R': 'ORG 5R', 'Organic 6': 'ORG 6', 'Organic 7': 'ORG 7',
+    'Organic 8': 'ORG 8', 'Organic 9': 'ORG 9', 'Organic 10': 'ORG 10',
+    'Organic 11': 'ORG 11', 'Round': 'ROUND'
+  };
+  const shapeLabel = shape && shape !== 'Rectangular' ? shapeMap[shape] || shape.toUpperCase() : '';
+  const title = shapeLabel ? `${productName} ${color.toUpperCase()} - ${shapeLabel}` : `${productName} ${color.toUpperCase()}`;
+
+  // Finishing in Portuguese
+  const finPT = finishing && finishing.toLowerCase().includes('folded') ? 'PEGADO' : 'COCIDO';
+
+  // Measurements in inches
+  const totalIn1 = ft1 * 12 + in1;
+  const totalIn2 = ft2 * 12 + in2;
+  const measIn = `${totalIn1}" x ${totalIn2}"`;
+
+  // Measurements in ft/in
+  const measFt = `${ft1}ft${in1 > 0 ? ' ' + in1 + 'in' : ''} x ${ft2}ft${in2 > 0 ? ' ' + in2 + 'in' : ''}`;
+
+  const invNum = `${invoiceNumber}-${copyNum}`;
+
+  const html = `
+    <div style="width:1800px;height:1200px;background:white;position:relative;padding:80px;box-sizing:border-box;font-family:'Times New Roman',Times,serif;color:black;">
+      <div style="font-size:140px;font-weight:400;line-height:1.1;">${title}</div>
+      <div style="font-size:140px;font-weight:700;line-height:1.1;margin-top:10px;">${finPT}</div>
+      <div style="font-size:100px;font-weight:400;line-height:1.2;margin-top:50px;">${measIn}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:60px;">
+        <div style="font-size:100px;font-weight:400;line-height:1.2;">${measFt}</div>
+        <div style="font-size:160px;font-weight:400;line-height:1;">${invNum}</div>
+      </div>
+    </div>`;
+
+  return await htmlToCanvas(html, 1800, 1200);
 }
 
 // Renders HTML to PNG using html2canvas
