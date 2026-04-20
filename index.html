@@ -495,13 +495,46 @@ function fileToBase64(file) {
 }
 
 function applyExtractedData(parsed) {
-  console.log('Applying extracted data:', JSON.stringify(parsed));
+  console.log('[PDF Import] Data:', JSON.stringify(parsed));
+
+  const sel = document.getElementById('customerSelect');
 
   // Wait for customers dropdown to be populated
-  const sel = document.getElementById('customerSelect');
   const waitForCustomers = (cb) => {
     if (sel.options.length > 1) { cb(); return; }
     setTimeout(() => waitForCustomers(cb), 200);
+  };
+
+  // Helper to wait for a select element to have options populated
+  const waitForOptions = (id, cb, tries = 0) => {
+    const el = document.getElementById(id);
+    if (el && el.options.length > 1) { cb(el); return; }
+    if (tries > 20) { cb(el); return; } // give up after 4 seconds
+    setTimeout(() => waitForOptions(id, cb, tries + 1), 200);
+  };
+
+  // Helper to set dropdown by matching value
+  const setDropdown = (el, target, mode = 'flexible') => {
+    if (!el || !target) return false;
+    const t = target.toUpperCase().trim();
+    // Exact match first
+    for (let i = 0; i < el.options.length; i++) {
+      if (el.options[i].value.toUpperCase().trim() === t) {
+        el.selectedIndex = i;
+        return true;
+      }
+    }
+    if (mode === 'flexible') {
+      // Partial match
+      for (let i = 0; i < el.options.length; i++) {
+        const v = el.options[i].value.toUpperCase().trim();
+        if (v && (v.includes(t) || t.includes(v))) {
+          el.selectedIndex = i;
+          return true;
+        }
+      }
+    }
+    return false;
   };
 
   waitForCustomers(() => {
@@ -519,65 +552,62 @@ function applyExtractedData(parsed) {
       if (bestMatch > 0) sel.selectedIndex = bestMatch;
     }
 
-    // Clear and rebuild items
-    if (parsed.items && parsed.items.length > 0) {
-      document.getElementById('itemsContainer').innerHTML = '';
-      itemCount = 0;
+    if (!parsed.items || parsed.items.length === 0) return;
 
-      parsed.items.forEach((item, idx) => {
-        addItem();
-        const n = itemCount;
+    // Clear existing items
+    document.getElementById('itemsContainer').innerHTML = '';
+    itemCount = 0;
 
-        // Step 1: Set product immediately
-        const prodSel = document.getElementById('prod-' + n);
-        if (prodSel && item.product) {
-          const prodSearch = item.product.toUpperCase().replace(' RUG', '').trim();
-          for (let i = 0; i < prodSel.options.length; i++) {
-            const opt = prodSel.options[i].value.toUpperCase().replace(' RUG', '').trim();
-            if (opt === prodSearch || opt.includes(prodSearch) || prodSearch.includes(opt)) {
-              prodSel.value = prodSel.options[i].value;
-              onProdChange(n);
-              break;
+    // Process items one at a time, sequentially
+    const processItem = (idx) => {
+      if (idx >= parsed.items.length) return;
+      const item = parsed.items[idx];
+
+      addItem();
+      const n = itemCount;
+      console.log('[PDF Import] Item', idx, 'n=', n, 'product=', item.product);
+
+      // Step 1: Set product
+      const prodSel = document.getElementById('prod-' + n);
+      if (prodSel && item.product) {
+        const prodSearch = item.product.toUpperCase().replace(' RUG', '').trim();
+        for (let i = 0; i < prodSel.options.length; i++) {
+          const opt = prodSel.options[i].value.toUpperCase().replace(' RUG', '').trim();
+          if (opt === prodSearch || opt.includes(prodSearch) || prodSearch.includes(opt)) {
+            prodSel.value = prodSel.options[i].value;
+            onProdChange(n);
+            console.log('[PDF Import] Product set to', prodSel.value);
+            break;
+          }
+        }
+      }
+
+      // Step 2: Wait for color and size dropdowns, then fill
+      waitForOptions('color-' + n, () => {
+        // Color
+        const colorSel = document.getElementById('color-' + n);
+        setDropdown(colorSel, item.color);
+        console.log('[PDF Import] Color set to', colorSel?.value);
+
+        // Finishing
+        const finSel = document.getElementById('fin-' + n);
+        if (finSel && item.finishing) {
+          const fs = item.finishing.toUpperCase();
+          for (let i = 0; i < finSel.options.length; i++) {
+            if (finSel.options[i].value.toUpperCase().includes(fs.split(' ')[0])) {
+              finSel.selectedIndex = i; break;
             }
           }
         }
 
-        // Step 2: After onProdChange populates colors/sizes, fill the rest
-        setTimeout(() => {
-          // Color
-          const colorSel = document.getElementById('color-' + n);
-          if (colorSel && item.color) {
-            const cs = item.color.toUpperCase().trim();
-            for (let i = 0; i < colorSel.options.length; i++) {
-              const cv = colorSel.options[i].value.toUpperCase().trim();
-              if (cv === cs || cv.includes(cs) || cs.includes(cv)) {
-                colorSel.selectedIndex = i; break;
-              }
-            }
-          }
+        // Shape
+        const shapeSel = document.getElementById('shape-' + n);
+        if (shapeSel && item.shape) {
+          setDropdown(shapeSel, item.shape, 'exact');
+        }
 
-          // Finishing
-          const finSel = document.getElementById('fin-' + n);
-          if (finSel && item.finishing) {
-            const fs = item.finishing.toUpperCase();
-            for (let i = 0; i < finSel.options.length; i++) {
-              if (finSel.options[i].value.toUpperCase().includes(fs.split(' ')[0])) {
-                finSel.selectedIndex = i; break;
-              }
-            }
-          }
-
-          // Shape
-          const shapeSel = document.getElementById('shape-' + n);
-          if (shapeSel && item.shape) {
-            for (let i = 0; i < shapeSel.options.length; i++) {
-              if (shapeSel.options[i].value.toUpperCase() === item.shape.toUpperCase()) {
-                shapeSel.selectedIndex = i; break;
-              }
-            }
-          }
-
-          // Size — check standard first
+        // Size — check standard first
+        waitForOptions('size-' + n, () => {
           const sizeSel = document.getElementById('size-' + n);
           if (sizeSel && item.ft1 != null) {
             const ft1 = item.ft1 || 0, ft2 = item.ft2 || 0;
@@ -589,11 +619,18 @@ function applyExtractedData(parsed) {
                 if (!opt || opt === 'Custom Size') continue;
                 const parts = opt.replace(/['"]/g,'').split('x');
                 if (parts.length === 2 && parseFloat(parts[0]) === ft1 && parseFloat(parts[1]) === ft2) {
-                  sizeSel.selectedIndex = i; matched = true; break;
+                  sizeSel.selectedIndex = i;
+                  matched = true;
+                  console.log('[PDF Import] Standard size matched:', opt);
+                  break;
                 }
               }
             }
-            if (!matched) { sizeSel.value = 'Custom Size'; calcPrice(n); }
+            if (!matched) {
+              sizeSel.value = 'Custom Size';
+              console.log('[PDF Import] Using Custom Size');
+            }
+            calcPrice(n);
           }
 
           // Measurements
@@ -610,9 +647,14 @@ function applyExtractedData(parsed) {
 
           buildSKU(n);
           updateTotal();
-        }, 200);
+
+          // Process next item
+          processItem(idx + 1);
+        });
       });
-    }
+    };
+
+    processItem(0);
   });
 }
 
