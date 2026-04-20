@@ -15,12 +15,35 @@ async function findProductId(itemName) {
   const products = data?.data?.business?.products?.edges || [];
   const search = itemName.toUpperCase().trim();
   const searchNoRug = search.replace(' RUG', '').trim();
-  const match = products.find(e => {
+
+  // Filter out Z-prefix duplicates
+  const valid = products.filter(e => !e.node.name.toUpperCase().trim().startsWith('Z '));
+
+  // Priority 1: exact match with " RUG" suffix (e.g. "SPOT RUG" === "SPOT RUG")
+  let match = valid.find(e => e.node.name.toUpperCase().trim() === search);
+  if (match) return match.node.id;
+
+  // Priority 2: exact match without " RUG" (e.g. "SPOT" === "SPOT")
+  match = valid.find(e => e.node.name.toUpperCase().trim() === searchNoRug);
+  if (match) return match.node.id;
+
+  // Priority 3: product name is exactly one word + "RUG" — "SPOT RUG" not "QUARTO FILHO - SPOT - OIL BLUE"
+  match = valid.find(e => {
     const name = e.node.name.toUpperCase().trim();
-    if (name.startsWith('Z ')) return false;
-    return name === search || name === searchNoRug || name.includes(search) || name.includes(searchNoRug) || search.includes(name);
+    // Must be "<word> RUG" or "<word>" only - no dashes, no extra words
+    return (name === searchNoRug + ' RUG' || name === searchNoRug) && !name.includes('-');
   });
-  return match?.node?.id || null;
+  if (match) return match.node.id;
+
+  // Priority 4: contains match but name is short (<=20 chars) and has no dashes (avoids long custom names)
+  match = valid.find(e => {
+    const name = e.node.name.toUpperCase().trim();
+    if (name.length > 20 || name.includes('-')) return false;
+    return name.includes(searchNoRug) || searchNoRug.includes(name.replace(' RUG', ''));
+  });
+  if (match) return match.node.id;
+
+  return null;
 }
 
 module.exports = async function handler(req, res) {
