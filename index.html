@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Via Star Rugs</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&family=Cardo:wght@400;700&family=EB+Garamond:wght@400;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&family=Cardo:wght@400;700&family=EB+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -196,11 +196,11 @@ function generateLabels() {
         });
       }
 
-      // Load fonts
-      await document.fonts.load('bold 94px Cardo');
-      await document.fonts.load('bold 70px Cardo');
-      await document.fonts.load('49px "EB Garamond"');
-      await document.fonts.load('bold 33px "EB Garamond"');
+      // Load fonts with specific weights
+      await document.fonts.load('700 94px Cardo');
+      await document.fonts.load('700 70px Cardo');
+      await document.fonts.load('400 49px "EB Garamond"');
+      await document.fonts.load('700 33px "EB Garamond"');
 
       const zip = new JSZip();
       const folder = zip.folder(`INV-${invoiceNumber}`);
@@ -280,18 +280,17 @@ async function drawProductLabel(data) {
   ctx.textBaseline = 'alphabetic';
 
   // Product name (Cardo Bold 23.5pt) - right aligned, top-right
-  // Original: "Daytona" at x=318.4, y=23.1, width ~97.5pt, right edge ~416pt
-  ctx.font = `bold ${23.5 * S}px Cardo, serif`;
+  ctx.font = `700 ${23.5 * S}px Cardo, "Times New Roman", serif`;
   ctx.textAlign = 'right';
   ctx.fillText(data.productName, 415.9 * S, (23.1 + 23.5 * 0.85) * S);
 
   // Color (Cardo Bold 17.4pt) - right aligned below product
-  ctx.font = `bold ${17.4 * S}px Cardo, serif`;
+  ctx.font = `700 ${17.4 * S}px Cardo, "Times New Roman", serif`;
   ctx.fillText(data.color, 415.9 * S, (48.3 + 17.4 * 0.85) * S);
 
   // Measurements (Cardo Bold 12.3pt) - left aligned
   ctx.textAlign = 'left';
-  ctx.font = `bold ${12.3 * S}px Cardo, serif`;
+  ctx.font = `700 ${12.3 * S}px Cardo, "Times New Roman", serif`;
   ctx.fillText(data.measurements, 45.6 * S, (106.4 + 12.3 * 0.85) * S);
 
   // Shape (Cardo Bold 12.3pt) - below measurements, only if not Rectangular
@@ -299,18 +298,18 @@ async function drawProductLabel(data) {
     ctx.fillText(data.shape, 45.6 * S, (121.2 + 12.3 * 0.85) * S);
   }
 
-  // Finishing (EB Garamond Regular 12.3pt)
-  ctx.font = `${12.3 * S}px "EB Garamond", serif`;
+  // Finishing (EB Garamond Regular 12.3pt) - right side same line as measurements
+  ctx.font = `400 ${12.3 * S}px "EB Garamond", "Times New Roman", serif`;
   ctx.fillText(data.finishing.replace(' Edges', ''), 219.8 * S, (106.0 + 12.3 * 0.85) * S);
 
-  // Origin
+  // Origin (EB Garamond Regular)
   ctx.fillText(data.origin, 45.1 * S, (159.9 + 12.3 * 0.85) * S);
 
-  // Material
+  // Material (EB Garamond Regular)
   ctx.fillText(data.material, 219.8 * S, (159.9 + 12.3 * 0.85) * S);
 
-  // INV number (EB Garamond Bold 8.3pt)
-  ctx.font = `bold ${8.3 * S}px "EB Garamond", serif`;
+  // INV number (EB Garamond Bold 8.3pt) - bottom right
+  ctx.font = `700 ${8.3 * S}px "EB Garamond", "Times New Roman", serif`;
   ctx.fillText(data.invNum, 327.2 * S, (270.4 + 8.3 * 0.85) * S);
 
   ctx.restore();
