@@ -573,6 +573,7 @@ function applyExtractedData(parsed) {
         const prodSearch = item.product.toUpperCase().replace(' RUG', '').trim();
         for (let i = 0; i < prodSel.options.length; i++) {
           const opt = prodSel.options[i].value.toUpperCase().replace(' RUG', '').trim();
+          if (!opt) continue; // skip empty placeholder
           if (opt === prodSearch || opt.includes(prodSearch) || prodSearch.includes(opt)) {
             prodSel.value = prodSel.options[i].value;
             onProdChange(n);
