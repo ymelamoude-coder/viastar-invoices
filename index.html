@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Via Star Rugs</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&family=Cardo:wght@400;700&family=Abril+Fatface&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -166,72 +166,218 @@ const PRODUCT_INFO = {
 function generateLabels() {
   if (!lastInvoiceData) return;
   const { invoiceNumber, customerName, items } = lastInvoiceData;
-  let pages = '';
-  for (const item of items) {
-    const info = PRODUCT_INFO[item.name] || { origin: '', material: '' };
-    const productName = item.name.replace(' RUG', '');
-    for (let i = 0; i < item.quantity; i++) {
-      pages += `
-        <div class="label">
-          <div class="label-inner rotated">
-            <div class="prod-name">${productName}</div>
-            <div class="prod-color">${item.color}</div>
-            <div class="spacer"></div>
-            <div class="detail-row">
-              <span class="detail-val big">${item.measurements}</span>
-              ${item.shape !== 'Rectangular' ? `<span class="detail-val">${item.shape}</span>` : ''}
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Finishing</span>
-              <span class="detail-val">${item.finishing}</span>
-            </div>
-            <div class="spacer"></div>
-            <div class="detail-row">
-              <span class="detail-label">Origin</span>
-              <span class="detail-val">${info.origin}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Material</span>
-              <span class="detail-val">${info.material}</span>
-            </div>
-            <div class="spacer"></div>
-            <div class="inv-num">INV ${invoiceNumber}-${i+1}</div>
-          </div>
-        </div>
-        <div class="label">
-          <div class="label-inner center">
-            <div class="cust-name">${customerName}</div>
-            <div class="cust-inv">${invoiceNumber}</div>
-          </div>
-        </div>`;
+
+  // Show loading
+  const btn = document.getElementById('labelBtn');
+  const originalText = btn.textContent;
+  btn.textContent = 'Gerando etiquetas...';
+  btn.disabled = true;
+
+  // Expand all items considering quantity
+  const labels = [];
+  items.forEach((item, idx) => {
+    const qty = parseInt(item.quantity) || 1;
+    for (let i = 1; i <= qty; i++) {
+      labels.push({ item, copyNum: i, totalCopies: qty });
     }
+  });
+
+  // Generate all PNGs and zip
+  (async () => {
+    try {
+      // Load JSZip dynamically
+      if (typeof JSZip === 'undefined') {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+
+      // Load fonts
+      await document.fonts.load('bold 94px Cardo');
+      await document.fonts.load('bold 70px Cardo');
+      await document.fonts.load('49px "Abril Fatface"');
+      await document.fonts.load('bold 33px "Abril Fatface"');
+
+      const zip = new JSZip();
+      const folder = zip.folder(`INV-${invoiceNumber}`);
+
+      for (let idx = 0; idx < labels.length; idx++) {
+        const { item, copyNum } = labels[idx];
+        const info = PRODUCT_INFO[item.name] || { origin: '', material: '' };
+        const productName = item.name.replace(' RUG', '');
+        const invNum = `INV ${invoiceNumber}-${copyNum}`;
+
+        // Parse measurements for label
+        let measStr = item.measurements || '';
+        measStr = measStr.replace(' × ', ' x ');
+
+        // Product label
+        const prodCanvas = await drawProductLabel({
+          productName, color: item.color, measurements: measStr,
+          shape: item.shape, finishing: item.finishing,
+          origin: info.origin, material: info.material, invNum
+        });
+        const prodBlob = await canvasToBlob(prodCanvas);
+        folder.file(`${productName}_${item.color}_${copyNum}_product.png`, prodBlob);
+
+        // Customer label
+        const custCanvas = await drawCustomerLabel({ customerName, invoiceNumber });
+        const custBlob = await canvasToBlob(custCanvas);
+        folder.file(`${productName}_${item.color}_${copyNum}_customer.png`, custBlob);
+      }
+
+      // Download zip
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Etiquetas-INV-${invoiceNumber}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      btn.textContent = 'Etiquetas geradas!';
+      setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+    } catch(e) {
+      console.error(e);
+      btn.textContent = 'Erro: ' + e.message;
+      setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 3000);
+    }
+  })();
+}
+
+function canvasToBlob(canvas) {
+  return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+}
+
+// Draw product label at exactly 300 DPI (1800x1200 for 6x4 inches)
+// Note: PDF is 6x4in in landscape orientation (432x288pt)
+// Rotated 180° as per the original design
+async function drawProductLabel(data) {
+  const W = 1800, H = 1200;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // White background
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, W, H);
+
+  // Scale: PDF pt → pixels at 300 DPI
+  // 1 pt = 1/72 inch = 300/72 px = 4.1667 px
+  const S = 300 / 72;
+
+  // Rotate 180° for upside-down printing (as in original PDF)
+  ctx.save();
+  ctx.translate(W, H);
+  ctx.rotate(Math.PI);
+
+  ctx.fillStyle = 'black';
+
+  // From PDF analysis - exact positions in pts, converted to pixels:
+  // Daytona: x=318.4 y=23.1 size=23.5pt Cardo-Bold
+  // Champagne: x=313.7 y=48.3 size=17.4pt Cardo-Bold
+  // 13ft x 18ft: x=45.6 y=106.4 size=12.3pt Cardo-Bold
+  // Folded: x=219.8 y=106.0 size=12.3pt AbrilText-Regular
+  // Organic 11: x=45.6 y=121.2 size=12.3pt Cardo-Bold
+  // Holland: x=45.1 y=159.9 size=12.3pt AbrilText-Regular
+  // 100% Polypropilene: x=219.8 y=159.9 size=12.3pt AbrilText-Regular
+  // INV 5912-1: x=327.2 y=270.4 size=8.3pt AbrilText-Bold
+
+  // Product name (big)
+  ctx.font = `bold ${23.5 * S}px Cardo, serif`;
+  ctx.textBaseline = 'alphabetic';
+  // y in PDF is top - need to add font size for baseline
+  ctx.fillText(data.productName, 318.4 * S, (23.1 + 23.5 * 0.85) * S);
+
+  // Color
+  ctx.font = `bold ${17.4 * S}px Cardo, serif`;
+  ctx.fillText(data.color, 313.7 * S, (48.3 + 17.4 * 0.85) * S);
+
+  // Measurements (Cardo Bold)
+  ctx.font = `bold ${12.3 * S}px Cardo, serif`;
+  ctx.fillText(data.measurements, 45.6 * S, (106.4 + 12.3 * 0.85) * S);
+
+  // Shape (Cardo Bold) - only if not Rectangular
+  if (data.shape && data.shape !== 'Rectangular') {
+    ctx.fillText(data.shape, 45.6 * S, (121.2 + 12.3 * 0.85) * S);
   }
 
-  const win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Etiquetas INV ${invoiceNumber}</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box;}
-  body{background:#fff;}
-  .label{width:4in;height:6in;display:flex;align-items:center;justify-content:center;page-break-after:always;padding:0.3in;}
-  .label-inner{width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;font-family:'Times New Roman',serif;}
-  .rotated{transform:rotate(180deg);}
-  .center{align-items:center;justify-content:center;}
-  .prod-name{font-size:30pt;font-weight:bold;margin-bottom:2pt;}
-  .prod-color{font-size:20pt;font-weight:bold;margin-bottom:10pt;}
-  .detail-row{display:flex;justify-content:space-between;margin-bottom:5pt;}
-  .detail-label{font-size:12pt;}
-  .detail-val{font-size:12pt;font-weight:bold;}
-  .detail-val.big{font-size:16pt;}
-  .spacer{height:8pt;}
-  .inv-num{font-size:12pt;font-weight:bold;margin-top:8pt;}
-  .cust-name{font-size:34pt;font-weight:bold;text-align:center;margin-bottom:16pt;}
-  .cust-inv{font-size:52pt;font-weight:bold;text-align:center;}
-  @media print{.label{page-break-after:always;}}
-</style></head>
-<body>${pages}</body></html>`);
-  win.document.close();
-  setTimeout(() => win.print(), 600);
+  // Finishing (Abril Regular-style — use Georgia as fallback)
+  ctx.font = `${12.3 * S}px "Abril Fatface", Georgia, serif`;
+  ctx.fillText(data.finishing.replace(' Edges', ''), 219.8 * S, (106.0 + 12.3 * 0.85) * S);
+
+  // Origin
+  ctx.fillText(data.origin, 45.1 * S, (159.9 + 12.3 * 0.85) * S);
+
+  // Material
+  ctx.fillText(data.material, 219.8 * S, (159.9 + 12.3 * 0.85) * S);
+
+  // INV number (Abril Bold)
+  ctx.font = `bold ${8.3 * S}px "Abril Fatface", Georgia, serif`;
+  ctx.fillText(data.invNum, 327.2 * S, (270.4 + 8.3 * 0.85) * S);
+
+  ctx.restore();
+  return canvas;
+}
+
+async function drawCustomerLabel(data) {
+  const W = 1200, H = 1800; // 4x6in portrait for customer label
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = 'black';
+  ctx.textAlign = 'center';
+
+  // Customer name - wrapped
+  ctx.font = 'bold 140px Cardo, serif';
+  const words = data.customerName.toUpperCase().split(' ');
+  let lines = [];
+  let currentLine = '';
+  words.forEach(word => {
+    const test = currentLine ? currentLine + ' ' + word : word;
+    if (ctx.measureText(test).width > W - 160) {
+      if (currentLine) lines.push(currentLine);
+      currentLine = word;
+    } else currentLine = test;
+  });
+  if (currentLine) lines.push(currentLine);
+
+  // Adjust font size if too many lines
+  if (lines.length > 2) {
+    ctx.font = 'bold 100px Cardo, serif';
+    lines = [];
+    currentLine = '';
+    words.forEach(word => {
+      const test = currentLine ? currentLine + ' ' + word : word;
+      if (ctx.measureText(test).width > W - 160) {
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+      } else currentLine = test;
+    });
+    if (currentLine) lines.push(currentLine);
+  }
+
+  // Draw centered
+  const totalHeight = lines.length * 160 + 200;
+  let y = (H - totalHeight) / 2 + 140;
+  lines.forEach(line => {
+    ctx.fillText(line, W / 2, y);
+    y += 160;
+  });
+
+  // Invoice number
+  ctx.font = 'bold 200px Cardo, serif';
+  ctx.fillText(data.invoiceNumber, W / 2, y + 100);
+
+  return canvas;
 }
 
 function setType(type) {
