@@ -72,7 +72,7 @@ module.exports = async function handler(req, res) {
       let lastRaw = null;
 
       for (let page = 1; page <= 50; page++) {
-        const query = `query { business(id: "${BUSINESS_ID}") { invoices(page: ${page}, pageSize: 50) { pageInfo { currentPage totalPages totalCount } edges { node { id invoiceNumber memo customer { name } items { product { id name } description quantity unitPrice } } } } } }`;
+        const query = `query { business(id: "${BUSINESS_ID}") { invoices(page: ${page}, pageSize: 50) { pageInfo { currentPage totalPages totalCount } edges { node { id invoiceNumber poNumber customer { name } items { product { id name } description quantity unitPrice } } } } } }`;
         const data = await gql(query, {});
 
         if (data?.errors) { lastError = JSON.stringify(data.errors); break; }
@@ -93,7 +93,7 @@ module.exports = async function handler(req, res) {
       });
 
       const inv = found.node;
-      const poNumber = inv.memo ? ((inv.memo.match(/PO:\s*(.+)/i) || [])[1] || '').trim() : '';
+      const poNumber = inv.poNumber || '';
       const items = inv.items.map(it => {
         const desc = it.description || "";
         const meas = (desc.match(/Measurements:\s*([^\n]+)/i) || [])[1] || "";
@@ -138,7 +138,7 @@ module.exports = async function handler(req, res) {
 
       const input = { businessId: BUSINESS_ID, customerId, items: formattedItems };
       if (poNumber && poNumber.trim()) {
-        input.memo = "PO: " + poNumber.trim();
+        input.poNumber = poNumber.trim();
       }
 
       if (docType === "estimate") {
