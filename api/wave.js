@@ -64,25 +64,35 @@ module.exports = async function handler(req, res) {
     try {
       const invoiceNumber = String(req.query.number).trim();
       if (!invoiceNumber) return res.status(400).json({ error: "Informe o número da invoice" });
-      // Search through invoices - Wave returns them ordered by recent first
+
       let found = null;
       let totalChecked = 0;
       let sampleNumbers = [];
+      let lastError = null;
+      let lastRaw = null;
+
       for (let page = 1; page <= 50; page++) {
-        const data = await gql(`query { business(id: "${BUSINESS_ID}") { invoices(page: ${page}, pageSize: 50) { edges { node { id invoiceNumber customer { name } items { product { name } description quantity unitPrice { value } } } } pageInfo { currentPage totalPages } } } }`, {});
+        const query = `query { business(id: "${BUSINESS_ID}") { invoices(page: ${page}, pageSize: 50) { pageInfo { currentPage totalPages totalCount } edges { node { id invoiceNumber customer { name } items { product { id name } description quantity unitPrice } } } } } }`;
+        const data = await gql(query, {});
+
+        if (data?.errors) { lastError = JSON.stringify(data.errors); break; }
+        if (page === 1) lastRaw = JSON.stringify(data).substring(0, 500);
+
         const invoices = data?.data?.business?.invoices?.edges || [];
         totalChecked += invoices.length;
         if (page === 1) sampleNumbers = invoices.slice(0, 5).map(e => String(e.node.invoiceNumber));
         found = invoices.find(e => String(e.node.invoiceNumber).trim() === invoiceNumber || String(e.node.invoiceNumber).trim().replace(/^0+/, '') === invoiceNumber.replace(/^0+/, ''));
         if (found) break;
         const info = data?.data?.business?.invoices?.pageInfo;
-        if (!info || page >= info.totalPages) break;
+        if (!info || page >= info.totalPages || invoices.length === 0) break;
       }
+
       if (!found) return res.status(404).json({
-        error: "Invoice " + invoiceNumber + " não encontrada. Verificadas " + totalChecked + " invoices. Exemplos de números encontrados: " + sampleNumbers.join(", ")
+        error: "Invoice " + invoiceNumber + " não encontrada.",
+        debug: { totalChecked, sampleNumbers, lastError, lastRaw }
       });
+
       const inv = found.node;
-      // Parse items from description
       const items = inv.items.map(it => {
         const desc = it.description || "";
         const meas = (desc.match(/Measurements:\s*([^\n]+)/i) || [])[1] || "";
@@ -98,7 +108,7 @@ module.exports = async function handler(req, res) {
           finishing: finishing.trim(),
           sku: sku.trim(),
           quantity: parseInt(it.quantity) || 1,
-          price: it.unitPrice?.value || 0
+          price: parseFloat(it.unitPrice) || 0
         };
       });
       return res.status(200).json({
@@ -106,7 +116,7 @@ module.exports = async function handler(req, res) {
         customerName: inv.customer?.name || "",
         items
       });
-    } catch (e) { return res.status(500).json({ error: e.message }); }
+    } catch (e) { return res.status(500).json({ error: e.message, stack: e.stack }); }
   }
 
   if (req.method === "POST") {
