@@ -694,6 +694,25 @@ function applyExtractedData(parsed) {
       if (idx >= parsed.items.length) return;
       const item = parsed.items[idx];
 
+      // Decode color from rawSku for products with ambiguous OCR
+      if (item.rawSku && item.product) {
+        const sku = item.rawSku.toUpperCase();
+        // Lombok: LBK-15B / 15S / 18B / 18S
+        const lbk = sku.match(/LBK[-_](\d+)([BS])/);
+        if (lbk) {
+          const num = lbk[1], letter = lbk[2];
+          item.color = `${num} ${letter === 'B' ? 'Beige' : 'Silver'}`;
+          console.log('[PDF Import] Lombok color decoded from SKU:', item.color);
+        }
+        // Spot: SPT-ICE/OIL/RUS/SND/SLV
+        const spt = sku.match(/SPT[-_](ICE|OIL|RUS|SND|SLV)/);
+        if (spt) {
+          const map = { ICE: 'Ice', OIL: 'Oil', RUS: 'Rust', SND: 'Sand', SLV: 'Silver' };
+          item.color = map[spt[1]];
+          console.log('[PDF Import] Spot color decoded from SKU:', item.color);
+        }
+      }
+
       addItem();
       const n = itemCount;
       console.log('[PDF Import] Item', idx, 'n=', n, 'product=', item.product);

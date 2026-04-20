@@ -21,9 +21,11 @@ module.exports = async function handler(req, res) {
     const prompt = [
       "Extract data from this document (PDF or image) and return ONLY valid JSON with no extra text.",
       "",
-      'Format: {"customer": "company name", "poNumber": "PO2416", "items": [{"product": "GOYA RUG", "color": "Silver Stripes", "shape": "Rectangular", "finishing": "Folded Edges", "ft1": 9, "in1": 0, "ft2": 12, "in2": 0, "quantity": 1, "price": 641.52}]}',
+      'Format: {"customer": "company name", "poNumber": "PO2416", "items": [{"product": "GOYA RUG", "color": "Silver Stripes", "shape": "Rectangular", "finishing": "Folded Edges", "ft1": 9, "in1": 0, "ft2": 12, "in2": 0, "quantity": 1, "price": 641.52, "rawSku": "GOY-SST-F-RT-S-9X12"}]}',
       "",
-      "poNumber: extract the Purchase Order number from the document. Look for 'PO #', 'PO Number', 'Order No.', 'P.O.', 'Purchase Order', etc. Examples: 'PO2416', 'IPM-205519', 'PO-12345'. Return empty string '' if not found.",
+      "CRITICAL: Always include rawSku with the EXACT SKU code text as shown in the document - character by character, do not guess or change any letter. If no SKU is shown, set rawSku to empty string.",
+      "",
+      "poNumber: extract the Purchase Order number from the document. Look for 'PO #', 'PO Number', 'Order No.', 'P.O.', 'Purchase Order', etc. Examples: 'PO2416', 'IPM-205519', '4627'. Return empty string '' if not found.",
       "",
       "VALID PRODUCT COLORS (use EXACTLY these values):",
       "ALLURE RUG: 6483",
