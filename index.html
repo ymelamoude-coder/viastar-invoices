@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Via Star Rugs</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&family=Cardo:wght@400;700&family=Abril+Fatface&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&family=Cardo:wght@400;700&family=EB+Garamond:wght@400;700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -199,8 +199,8 @@ function generateLabels() {
       // Load fonts
       await document.fonts.load('bold 94px Cardo');
       await document.fonts.load('bold 70px Cardo');
-      await document.fonts.load('49px "Abril Fatface"');
-      await document.fonts.load('bold 33px "Abril Fatface"');
+      await document.fonts.load('49px "EB Garamond"');
+      await document.fonts.load('bold 33px "EB Garamond"');
 
       const zip = new JSZip();
       const folder = zip.folder(`INV-${invoiceNumber}`);
@@ -299,21 +299,18 @@ async function drawProductLabel(data) {
     ctx.fillText(data.shape, 45.6 * S, (121.2 + 12.3 * 0.85) * S);
   }
 
-  // Finishing (Abril Text Regular 12.3pt) - right side same line as measurements
-  // No "Finishing" label — just the value
-  ctx.font = `${12.3 * S}px "Abril Fatface", Georgia, serif`;
+  // Finishing (EB Garamond Regular 12.3pt)
+  ctx.font = `${12.3 * S}px "EB Garamond", serif`;
   ctx.fillText(data.finishing.replace(' Edges', ''), 219.8 * S, (106.0 + 12.3 * 0.85) * S);
 
-  // Origin (Abril Text Regular 12.3pt) - left side
-  // No "Origin" label — just the value
+  // Origin
   ctx.fillText(data.origin, 45.1 * S, (159.9 + 12.3 * 0.85) * S);
 
-  // Material (Abril Text Regular 12.3pt) - right side
-  // No "Material" label — just the value
+  // Material
   ctx.fillText(data.material, 219.8 * S, (159.9 + 12.3 * 0.85) * S);
 
-  // INV number (Abril Text Bold 8.3pt) - bottom right
-  ctx.font = `bold ${8.3 * S}px "Abril Fatface", Georgia, serif`;
+  // INV number (EB Garamond Bold 8.3pt)
+  ctx.font = `bold ${8.3 * S}px "EB Garamond", serif`;
   ctx.fillText(data.invNum, 327.2 * S, (270.4 + 8.3 * 0.85) * S);
 
   ctx.restore();
@@ -321,7 +318,7 @@ async function drawProductLabel(data) {
 }
 
 async function drawCustomerLabel(data) {
-  const W = 1200, H = 1800; // 4x6in portrait for customer label
+  const W = 1800, H = 1200; // 4x6in landscape to match product label orientation
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
@@ -331,29 +328,39 @@ async function drawCustomerLabel(data) {
 
   ctx.fillStyle = 'black';
   ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
 
-  // Customer name - wrapped
-  ctx.font = 'bold 140px Cardo, serif';
-  const words = data.customerName.toUpperCase().split(' ');
+  // Customer name in UPPERCASE, Times New Roman-like serif
+  const customerUpper = data.customerName.toUpperCase();
+  const words = customerUpper.split(' ');
+
+  // Start with large font, measure, wrap
+  let fontSize = 220;
+  ctx.font = `${fontSize}px "Times New Roman", Cardo, serif`;
+
+  // Word wrap
   let lines = [];
   let currentLine = '';
+  const maxWidth = W - 200;
+
   words.forEach(word => {
     const test = currentLine ? currentLine + ' ' + word : word;
-    if (ctx.measureText(test).width > W - 160) {
+    if (ctx.measureText(test).width > maxWidth) {
       if (currentLine) lines.push(currentLine);
       currentLine = word;
     } else currentLine = test;
   });
   if (currentLine) lines.push(currentLine);
 
-  // Adjust font size if too many lines
-  if (lines.length > 2) {
-    ctx.font = 'bold 100px Cardo, serif';
+  // If more than 2 lines, reduce font size
+  while (lines.length > 2 && fontSize > 140) {
+    fontSize -= 20;
+    ctx.font = `${fontSize}px "Times New Roman", Cardo, serif`;
     lines = [];
     currentLine = '';
     words.forEach(word => {
       const test = currentLine ? currentLine + ' ' + word : word;
-      if (ctx.measureText(test).width > W - 160) {
+      if (ctx.measureText(test).width > maxWidth) {
         if (currentLine) lines.push(currentLine);
         currentLine = word;
       } else currentLine = test;
@@ -361,17 +368,17 @@ async function drawCustomerLabel(data) {
     if (currentLine) lines.push(currentLine);
   }
 
-  // Draw centered
-  const totalHeight = lines.length * 160 + 200;
-  let y = (H - totalHeight) / 2 + 140;
-  lines.forEach(line => {
-    ctx.fillText(line, W / 2, y);
-    y += 160;
+  // Calculate vertical positions
+  const lineHeight = fontSize * 1.2;
+  const totalHeight = lines.length * lineHeight + lineHeight * 1.3;
+  const startY = (H - totalHeight) / 2 + lineHeight / 2;
+
+  lines.forEach((line, i) => {
+    ctx.fillText(line, W / 2, startY + i * lineHeight);
   });
 
-  // Invoice number
-  ctx.font = 'bold 200px Cardo, serif';
-  ctx.fillText(data.invoiceNumber, W / 2, y + 100);
+  // Invoice number below - same size
+  ctx.fillText(String(data.invoiceNumber), W / 2, startY + lines.length * lineHeight + lineHeight * 0.3);
 
   return canvas;
 }
