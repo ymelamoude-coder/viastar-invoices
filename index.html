@@ -644,7 +644,12 @@ function applyExtractedData(parsed) {
           const qtyEl = document.getElementById('qty-' + n);
           if (qtyEl && item.quantity) qtyEl.value = item.quantity;
           const priceEl = document.getElementById('price-' + n);
-          if (priceEl && item.price) priceEl.value = parseFloat(item.price).toFixed(2);
+          if (priceEl && item.price && parseFloat(item.price) > 0) {
+            priceEl.value = parseFloat(item.price).toFixed(2);
+          } else {
+            // No price from PDF — recalculate based on measurements
+            calcPrice(n);
+          }
 
           buildSKU(n);
           updateTotal();
