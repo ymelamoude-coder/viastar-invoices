@@ -208,7 +208,9 @@ function generateLabels() {
       for (let idx = 0; idx < labels.length; idx++) {
         const { item, copyNum } = labels[idx];
         const info = PRODUCT_INFO[item.name] || { origin: '', material: '' };
-        const productName = item.name.replace(' RUG', '');
+        // Title case product name: "SPOT RUG" -> "Spot"
+        const productName = item.name.replace(' RUG', '').toLowerCase()
+          .replace(/\b\w/g, c => c.toUpperCase());
         const invNum = `INV ${invoiceNumber}-${copyNum}`;
 
         // Parse measurements for label
@@ -267,56 +269,50 @@ async function drawProductLabel(data) {
   ctx.fillRect(0, 0, W, H);
 
   // Scale: PDF pt → pixels at 300 DPI
-  // 1 pt = 1/72 inch = 300/72 px = 4.1667 px
   const S = 300 / 72;
 
-  // Rotate 180° for upside-down printing (as in original PDF)
+  // Rotate 180° for upside-down printing
   ctx.save();
   ctx.translate(W, H);
   ctx.rotate(Math.PI);
 
   ctx.fillStyle = 'black';
-
-  // From PDF analysis - exact positions in pts, converted to pixels:
-  // Daytona: x=318.4 y=23.1 size=23.5pt Cardo-Bold
-  // Champagne: x=313.7 y=48.3 size=17.4pt Cardo-Bold
-  // 13ft x 18ft: x=45.6 y=106.4 size=12.3pt Cardo-Bold
-  // Folded: x=219.8 y=106.0 size=12.3pt AbrilText-Regular
-  // Organic 11: x=45.6 y=121.2 size=12.3pt Cardo-Bold
-  // Holland: x=45.1 y=159.9 size=12.3pt AbrilText-Regular
-  // 100% Polypropilene: x=219.8 y=159.9 size=12.3pt AbrilText-Regular
-  // INV 5912-1: x=327.2 y=270.4 size=8.3pt AbrilText-Bold
-
-  // Product name (big)
-  ctx.font = `bold ${23.5 * S}px Cardo, serif`;
   ctx.textBaseline = 'alphabetic';
-  // y in PDF is top - need to add font size for baseline
-  ctx.fillText(data.productName, 318.4 * S, (23.1 + 23.5 * 0.85) * S);
 
-  // Color
+  // Product name (Cardo Bold 23.5pt) - right aligned, top-right
+  // Original: "Daytona" at x=318.4, y=23.1, width ~97.5pt, right edge ~416pt
+  ctx.font = `bold ${23.5 * S}px Cardo, serif`;
+  ctx.textAlign = 'right';
+  ctx.fillText(data.productName, 415.9 * S, (23.1 + 23.5 * 0.85) * S);
+
+  // Color (Cardo Bold 17.4pt) - right aligned below product
   ctx.font = `bold ${17.4 * S}px Cardo, serif`;
-  ctx.fillText(data.color, 313.7 * S, (48.3 + 17.4 * 0.85) * S);
+  ctx.fillText(data.color, 415.9 * S, (48.3 + 17.4 * 0.85) * S);
 
-  // Measurements (Cardo Bold)
+  // Measurements (Cardo Bold 12.3pt) - left aligned
+  ctx.textAlign = 'left';
   ctx.font = `bold ${12.3 * S}px Cardo, serif`;
   ctx.fillText(data.measurements, 45.6 * S, (106.4 + 12.3 * 0.85) * S);
 
-  // Shape (Cardo Bold) - only if not Rectangular
+  // Shape (Cardo Bold 12.3pt) - below measurements, only if not Rectangular
   if (data.shape && data.shape !== 'Rectangular') {
     ctx.fillText(data.shape, 45.6 * S, (121.2 + 12.3 * 0.85) * S);
   }
 
-  // Finishing (Abril Regular-style — use Georgia as fallback)
+  // Finishing (Abril Text Regular 12.3pt) - right side same line as measurements
+  // No "Finishing" label — just the value
   ctx.font = `${12.3 * S}px "Abril Fatface", Georgia, serif`;
   ctx.fillText(data.finishing.replace(' Edges', ''), 219.8 * S, (106.0 + 12.3 * 0.85) * S);
 
-  // Origin
+  // Origin (Abril Text Regular 12.3pt) - left side
+  // No "Origin" label — just the value
   ctx.fillText(data.origin, 45.1 * S, (159.9 + 12.3 * 0.85) * S);
 
-  // Material
+  // Material (Abril Text Regular 12.3pt) - right side
+  // No "Material" label — just the value
   ctx.fillText(data.material, 219.8 * S, (159.9 + 12.3 * 0.85) * S);
 
-  // INV number (Abril Bold)
+  // INV number (Abril Text Bold 8.3pt) - bottom right
   ctx.font = `bold ${8.3 * S}px "Abril Fatface", Georgia, serif`;
   ctx.fillText(data.invNum, 327.2 * S, (270.4 + 8.3 * 0.85) * S);
 
