@@ -62,19 +62,25 @@ module.exports = async function handler(req, res) {
 
   if (req.method === "GET" && req.query.action === "invoice") {
     try {
-      const invoiceNumber = req.query.number;
+      const invoiceNumber = String(req.query.number).trim();
       if (!invoiceNumber) return res.status(400).json({ error: "Informe o número da invoice" });
       // Search through invoices - Wave returns them ordered by recent first
       let found = null;
-      for (let page = 1; page <= 20; page++) {
+      let totalChecked = 0;
+      let sampleNumbers = [];
+      for (let page = 1; page <= 50; page++) {
         const data = await gql(`query { business(id: "${BUSINESS_ID}") { invoices(page: ${page}, pageSize: 50) { edges { node { id invoiceNumber customer { name } items { product { name } description quantity unitPrice { value } } } } pageInfo { currentPage totalPages } } } }`, {});
         const invoices = data?.data?.business?.invoices?.edges || [];
-        found = invoices.find(e => String(e.node.invoiceNumber) === String(invoiceNumber));
+        totalChecked += invoices.length;
+        if (page === 1) sampleNumbers = invoices.slice(0, 5).map(e => String(e.node.invoiceNumber));
+        found = invoices.find(e => String(e.node.invoiceNumber).trim() === invoiceNumber || String(e.node.invoiceNumber).trim().replace(/^0+/, '') === invoiceNumber.replace(/^0+/, ''));
         if (found) break;
         const info = data?.data?.business?.invoices?.pageInfo;
         if (!info || page >= info.totalPages) break;
       }
-      if (!found) return res.status(404).json({ error: "Invoice " + invoiceNumber + " não encontrada." });
+      if (!found) return res.status(404).json({
+        error: "Invoice " + invoiceNumber + " não encontrada. Verificadas " + totalChecked + " invoices. Exemplos de números encontrados: " + sampleNumbers.join(", ")
+      });
       const inv = found.node;
       // Parse items from description
       const items = inv.items.map(it => {
