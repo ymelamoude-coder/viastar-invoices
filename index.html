@@ -185,11 +185,20 @@ function generateLabels() {
   // Generate all PNGs and zip
   (async () => {
     try {
-      // Load JSZip dynamically
+      // Load JSZip and html2canvas dynamically
       if (typeof JSZip === 'undefined') {
         await new Promise((resolve, reject) => {
           const s = document.createElement('script');
           s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+      if (typeof html2canvas === 'undefined') {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
           s.onload = resolve;
           s.onerror = reject;
           document.head.appendChild(s);
@@ -255,136 +264,57 @@ function canvasToBlob(canvas) {
   return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
 }
 
-// Draw product label at exactly 300 DPI (1800x1200 for 6x4 inches)
-// Note: PDF is 6x4in in landscape orientation (432x288pt)
-// Rotated 180° as per the original design
-async function drawProductLabel(data) {
-  const W = 1800, H = 1200;
-  const canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d');
+// Renders HTML to PNG using html2canvas
+async function htmlToCanvas(htmlString, width, height) {
+  // Create hidden container
+  const container = document.createElement('div');
+  container.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;height:${height}px;background:white;overflow:hidden;`;
+  container.innerHTML = htmlString;
+  document.body.appendChild(container);
 
-  // White background
-  ctx.fillStyle = 'white';
-  ctx.fillRect(0, 0, W, H);
-
-  // Scale: PDF pt → pixels at 300 DPI
-  const S = 300 / 72;
-
-  // Rotate 180° for upside-down printing
-  ctx.save();
-  ctx.translate(W, H);
-  ctx.rotate(Math.PI);
-
-  ctx.fillStyle = 'black';
-  ctx.textBaseline = 'alphabetic';
-
-  // Product name (Cardo Bold 23.5pt) - right aligned, top-right
-  ctx.font = `700 ${23.5 * S}px Cardo, "Times New Roman", serif`;
-  ctx.textAlign = 'right';
-  ctx.fillText(data.productName, 415.9 * S, (23.1 + 23.5 * 0.85) * S);
-
-  // Color (Cardo Bold 17.4pt) - right aligned below product
-  ctx.font = `700 ${17.4 * S}px Cardo, "Times New Roman", serif`;
-  ctx.fillText(data.color, 415.9 * S, (48.3 + 17.4 * 0.85) * S);
-
-  // Measurements (Cardo Bold 12.3pt) - left aligned
-  ctx.textAlign = 'left';
-  ctx.font = `700 ${12.3 * S}px Cardo, "Times New Roman", serif`;
-  ctx.fillText(data.measurements, 45.6 * S, (106.4 + 12.3 * 0.85) * S);
-
-  // Shape (Cardo Bold 12.3pt) - below measurements, only if not Rectangular
-  if (data.shape && data.shape !== 'Rectangular') {
-    ctx.fillText(data.shape, 45.6 * S, (121.2 + 12.3 * 0.85) * S);
+  try {
+    // Wait for fonts
+    await document.fonts.ready;
+    // Extra wait
+    await new Promise(r => setTimeout(r, 200));
+    const canvas = await html2canvas(container, {
+      width, height, scale: 1, backgroundColor: 'white',
+      logging: false, useCORS: true
+    });
+    return canvas;
+  } finally {
+    document.body.removeChild(container);
   }
+}
 
-  // Finishing (Regular 12.3pt)
-  ctx.font = `400 ${12.3 * S}px "Times New Roman", Times, Georgia, serif`;
-  ctx.fillText(data.finishing.replace(' Edges', ''), 219.8 * S, (106.0 + 12.3 * 0.85) * S);
+async function drawProductLabel(data) {
+  const shapeHtml = (data.shape && data.shape !== 'Rectangular')
+    ? `<div style="position:absolute;left:190px;top:505px;font-family:Cardo,'Times New Roman',serif;font-weight:700;font-size:51px;">${data.shape}</div>` : '';
 
-  // Origin (Regular)
-  ctx.font = `400 ${12.3 * S}px "Times New Roman", Times, Georgia, serif`;
-  ctx.fillText(data.origin, 45.1 * S, (159.9 + 12.3 * 0.85) * S);
+  const html = `
+    <div style="width:1800px;height:1200px;background:white;position:relative;transform:rotate(180deg);transform-origin:center;">
+      <div style="position:absolute;right:85px;top:96px;font-family:Cardo,'Times New Roman',serif;font-weight:700;font-size:98px;line-height:1;">${data.productName}</div>
+      <div style="position:absolute;right:85px;top:201px;font-family:Cardo,'Times New Roman',serif;font-weight:700;font-size:72px;line-height:1;">${data.color}</div>
+      <div style="position:absolute;left:190px;top:443px;font-family:Cardo,'Times New Roman',serif;font-weight:700;font-size:51px;">${data.measurements}</div>
+      ${shapeHtml}
+      <div style="position:absolute;left:915px;top:443px;font-family:'Times New Roman',Times,serif;font-weight:400;font-size:51px;">${data.finishing.replace(' Edges','')}</div>
+      <div style="position:absolute;left:188px;top:666px;font-family:'Times New Roman',Times,serif;font-weight:400;font-size:51px;">${data.origin}</div>
+      <div style="position:absolute;left:915px;top:666px;font-family:'Times New Roman',Times,serif;font-weight:400;font-size:51px;">${data.material}</div>
+      <div style="position:absolute;left:1363px;top:1126px;font-family:'Times New Roman',Times,serif;font-weight:700;font-size:35px;">${data.invNum}</div>
+    </div>`;
 
-  // Material (Regular)
-  ctx.fillText(data.material, 219.8 * S, (159.9 + 12.3 * 0.85) * S);
-
-  // INV number (Bold 8.3pt) - bottom right
-  ctx.font = `700 ${8.3 * S}px "Times New Roman", Times, Georgia, serif`;
-  ctx.fillText(data.invNum, 327.2 * S, (270.4 + 8.3 * 0.85) * S);
-
-  ctx.restore();
-  return canvas;
+  return await htmlToCanvas(html, 1800, 1200);
 }
 
 async function drawCustomerLabel(data) {
-  const W = 1800, H = 1200; // 6x4in landscape (same as product label)
-  const canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d');
+  const name = data.customerName.toUpperCase();
+  const html = `
+    <div style="width:1800px;height:1200px;background:white;position:relative;transform:rotate(180deg);transform-origin:center;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Times New Roman',Times,serif;font-weight:700;">
+      <div style="font-size:280px;text-align:center;line-height:1.1;max-width:1700px;word-wrap:break-word;">${name}</div>
+      <div style="font-size:280px;text-align:center;line-height:1.1;margin-top:30px;">${data.invoiceNumber}</div>
+    </div>`;
 
-  ctx.fillStyle = 'white';
-  ctx.fillRect(0, 0, W, H);
-
-  // Rotate 180° like product label
-  ctx.save();
-  ctx.translate(W, H);
-  ctx.rotate(Math.PI);
-
-  ctx.fillStyle = 'black';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  const customerUpper = data.customerName.toUpperCase();
-  const words = customerUpper.split(' ');
-
-  // Start LARGE, shrink if needed
-  let fontSize = 280;
-  ctx.font = `bold ${fontSize}px "Times New Roman", Times, serif`;
-
-  let lines = [];
-  let currentLine = '';
-  const maxWidth = W - 160;
-
-  const wrapLines = (size) => {
-    ctx.font = `bold ${size}px "Times New Roman", Times, serif`;
-    const result = [];
-    let cur = '';
-    words.forEach(word => {
-      const test = cur ? cur + ' ' + word : word;
-      if (ctx.measureText(test).width > maxWidth) {
-        if (cur) result.push(cur);
-        cur = word;
-      } else cur = test;
-    });
-    if (cur) result.push(cur);
-    return result;
-  };
-
-  lines = wrapLines(fontSize);
-
-  // Shrink if too many lines or any line too wide
-  while ((lines.length > 2 || lines.some(l => { ctx.font = `bold ${fontSize}px "Times New Roman", Times, serif`; return ctx.measureText(l).width > maxWidth; })) && fontSize > 120) {
-    fontSize -= 20;
-    lines = wrapLines(fontSize);
-  }
-
-  // Now render with fontSize
-  ctx.font = `bold ${fontSize}px "Times New Roman", Times, serif`;
-  const lineHeight = fontSize * 1.1;
-  const totalLines = lines.length + 1; // +1 for invoice number
-  const totalHeight = totalLines * lineHeight;
-  const startY = (H - totalHeight) / 2 + lineHeight / 2;
-
-  lines.forEach((line, i) => {
-    ctx.fillText(line, W / 2, startY + i * lineHeight);
-  });
-
-  // Invoice number - same size, bold
-  ctx.fillText(String(data.invoiceNumber), W / 2, startY + lines.length * lineHeight);
-
-  ctx.restore();
-  return canvas;
+  return await htmlToCanvas(html, 1800, 1200);
 }
 
 function setType(type) {
