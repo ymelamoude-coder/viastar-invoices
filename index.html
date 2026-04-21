@@ -270,8 +270,9 @@ function generateLabels() {
           .replace(/\b\w/g, c => c.toUpperCase());
         const invNum = `INV ${invoiceNumber}-${copyNum}`;
 
-        // Parse measurements for label
+        // Parse measurements for label - strip "Custom Size" if present
         let measStr = item.measurements || '';
+        measStr = measStr.replace(/\s*[-–]?\s*Custom\s*Size\s*/gi, '').trim();
         measStr = measStr.replace(' × ', ' x ');
 
         // Product label
@@ -284,7 +285,7 @@ function generateLabels() {
         productFolder.file(`${productName}_${item.color}_${copyNum}.png`, prodBlob);
 
         // Customer label
-        const custCanvas = await drawCustomerLabel({ customerName, invoiceNumber, poNumber });
+        const custCanvas = await drawCustomerLabel({ customerName, invoiceNumber, poNumber, copyNum, totalLabels: labels.length });
         const custBlob = await canvasToBlob(custCanvas);
         customerFolder.file(`${productName}_${item.color}_${copyNum}.png`, custBlob);
 
@@ -434,10 +435,12 @@ async function drawProductLabel(data) {
 async function drawCustomerLabel(data) {
   const name = data.customerName.toUpperCase();
   const poLine = data.poNumber ? `<div style="font-size:140px;text-align:center;line-height:1.1;margin-top:20px;">PO: ${data.poNumber}</div>` : '';
+  const positionLine = `<div style="font-size:200px;text-align:center;line-height:1.1;margin-top:20px;">${data.copyNum}/${data.totalLabels}</div>`;
   const html = `
     <div style="width:1800px;height:1200px;background:white;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Times New Roman',Times,serif;font-weight:700;">
-      <div style="font-size:280px;text-align:center;line-height:1.1;max-width:1700px;word-wrap:break-word;">${name}</div>
-      <div style="font-size:280px;text-align:center;line-height:1.1;margin-top:30px;">${data.invoiceNumber}</div>
+      <div style="font-size:240px;text-align:center;line-height:1.1;max-width:1700px;word-wrap:break-word;">${name}</div>
+      <div style="font-size:240px;text-align:center;line-height:1.1;margin-top:20px;">${data.invoiceNumber}</div>
+      ${positionLine}
       ${poLine}
     </div>`;
 
