@@ -257,7 +257,10 @@ function generateLabels() {
       await document.fonts.load('700 33px "EB Garamond"');
 
       const zip = new JSZip();
-      const folder = zip.folder(`INV-${invoiceNumber}`);
+      const rootFolder = zip.folder(`INV-${invoiceNumber}`);
+      const productFolder = rootFolder.folder('product');
+      const customerFolder = rootFolder.folder('customer');
+      const productionFolder = rootFolder.folder('production');
 
       for (let idx = 0; idx < labels.length; idx++) {
         const { item, copyNum } = labels[idx];
@@ -278,12 +281,12 @@ function generateLabels() {
           origin: info.origin, material: info.material, invNum
         });
         const prodBlob = await canvasToBlob(prodCanvas);
-        folder.file(`${productName}_${item.color}_${copyNum}_product.png`, prodBlob);
+        productFolder.file(`${productName}_${item.color}_${copyNum}.png`, prodBlob);
 
         // Customer label
         const custCanvas = await drawCustomerLabel({ customerName, invoiceNumber, poNumber });
         const custBlob = await canvasToBlob(custCanvas);
-        folder.file(`${productName}_${item.color}_${copyNum}_customer.png`, custBlob);
+        customerFolder.file(`${productName}_${item.color}_${copyNum}.png`, custBlob);
 
         // Production label (provisional)
         const prodLabelCanvas = await drawProductionLabel({
@@ -294,7 +297,7 @@ function generateLabels() {
           invoiceNumber, copyNum
         });
         const prodLabelBlob = await canvasToBlob(prodLabelCanvas);
-        folder.file(`${productName}_${item.color}_${copyNum}_production.png`, prodLabelBlob);
+        productionFolder.file(`${productName}_${item.color}_${copyNum}.png`, prodLabelBlob);
       }
 
       // Download zip
@@ -414,7 +417,7 @@ async function drawProductLabel(data) {
     ? `<div style="position:absolute;left:190px;top:505px;font-family:Cardo,'Times New Roman',serif;font-weight:700;font-size:51px;">${data.shape}</div>` : '';
 
   const html = `
-    <div style="width:1800px;height:1200px;background:white;position:relative;transform:rotate(180deg);transform-origin:center;">
+    <div style="width:1800px;height:1200px;background:white;position:relative;">
       <div style="position:absolute;right:85px;top:96px;font-family:Cardo,'Times New Roman',serif;font-weight:700;font-size:98px;line-height:1;">${data.productName}</div>
       <div style="position:absolute;right:85px;top:201px;font-family:Cardo,'Times New Roman',serif;font-weight:700;font-size:72px;line-height:1;">${data.color}</div>
       <div style="position:absolute;left:190px;top:443px;font-family:Cardo,'Times New Roman',serif;font-weight:700;font-size:51px;">${data.measurements}</div>
@@ -432,7 +435,7 @@ async function drawCustomerLabel(data) {
   const name = data.customerName.toUpperCase();
   const poLine = data.poNumber ? `<div style="font-size:140px;text-align:center;line-height:1.1;margin-top:20px;">PO: ${data.poNumber}</div>` : '';
   const html = `
-    <div style="width:1800px;height:1200px;background:white;position:relative;transform:rotate(180deg);transform-origin:center;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Times New Roman',Times,serif;font-weight:700;">
+    <div style="width:1800px;height:1200px;background:white;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Times New Roman',Times,serif;font-weight:700;">
       <div style="font-size:280px;text-align:center;line-height:1.1;max-width:1700px;word-wrap:break-word;">${name}</div>
       <div style="font-size:280px;text-align:center;line-height:1.1;margin-top:30px;">${data.invoiceNumber}</div>
       ${poLine}
