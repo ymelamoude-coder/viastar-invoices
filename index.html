@@ -208,6 +208,12 @@ async function generateLabelsForExisting() {
   }
 }
 
+// Items que não geram etiqueta (shipping/delivery/frete/entrega)
+function isNonLabelItem(item) {
+  const name = (item.name || '').toLowerCase();
+  return /shipping|delivery|frete|entrega/i.test(name);
+}
+
 function generateLabels() {
   if (!lastInvoiceData) return;
   const { invoiceNumber, customerName, items, poNumber } = lastInvoiceData;
@@ -218,16 +224,30 @@ function generateLabels() {
   btn.textContent = 'Gerando etiquetas...';
   btn.disabled = true;
 
+  // Filtra shipping/delivery — não vão para etiquetas nem entram na contagem de volumes
+  const labelableItems = items.filter(it => !isNonLabelItem(it));
+  const skippedCount = items.length - labelableItems.length;
+  if (skippedCount > 0) {
+    console.log('[Labels] Ignorando ' + skippedCount + ' item(s) de shipping/delivery na geração de etiquetas');
+  }
+
   // Expand all items considering quantity - number by position in invoice
   const labels = [];
   let position = 0;
-  items.forEach((item) => {
+  labelableItems.forEach((item) => {
     const qty = parseInt(item.quantity) || 1;
     for (let i = 1; i <= qty; i++) {
       position++;
       labels.push({ item, copyNum: position });
     }
   });
+
+  if (labels.length === 0) {
+    btn.textContent = originalText;
+    btn.disabled = false;
+    alert('Nenhum item para gerar etiqueta (todos os itens são shipping/delivery).');
+    return;
+  }
 
   // Generate all PNGs and zip
   (async () => {
