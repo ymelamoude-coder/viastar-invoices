@@ -375,15 +375,24 @@ async function drawProductionLabel(data) {
   const title = shapeLabel ? `${productName} ${color.toUpperCase()} - ${shapeLabel}` : `${productName} ${color.toUpperCase()}`;
 
   // Finishing in Portuguese
-  const finPT = finishing && finishing.toLowerCase().includes('folded') ? 'PEGADO' : 'COCIDO';
+  const isFolded = finishing && finishing.toLowerCase().includes('folded');
+  const finPT = isFolded ? 'PEGADO' : 'COCIDO';
 
-  // Measurements in inches
-  const totalIn1 = ft1 * 12 + in1;
-  const totalIn2 = ft2 * 12 + in2;
+  // Measurements in inches — soma 2" em cada dimensão quando Folded (margem de dobra)
+  let totalIn1 = ft1 * 12 + in1;
+  let totalIn2 = ft2 * 12 + in2;
+  if (isFolded) {
+    totalIn1 += 2;
+    totalIn2 += 2;
+  }
   const measIn = `${totalIn1}" x ${totalIn2}"`;
 
-  // Measurements in ft/in
-  const measFt = `${ft1}ft${in1 > 0 ? ' ' + in1 + 'in' : ''} x ${ft2}ft${in2 > 0 ? ' ' + in2 + 'in' : ''}`;
+  // Measurements in ft/in — recalcula a partir do total ajustado
+  const dispFt1 = Math.floor(totalIn1 / 12);
+  const dispIn1 = totalIn1 % 12;
+  const dispFt2 = Math.floor(totalIn2 / 12);
+  const dispIn2 = totalIn2 % 12;
+  const measFt = `${dispFt1}ft${dispIn1 > 0 ? ' ' + dispIn1 + 'in' : ''} x ${dispFt2}ft${dispIn2 > 0 ? ' ' + dispIn2 + 'in' : ''}`;
 
   const invNum = `${invoiceNumber}-${copyNum}`;
 
@@ -457,11 +466,13 @@ async function drawProductLabel(data) {
 async function drawCustomerLabel(data) {
   const fullName = data.customerName.toUpperCase();
   const name = fullName.length > 25 ? fullName.slice(0, 25).trimEnd() + '…' : fullName;
+  // Max 2 lines: font fits the full name across 2 lines of 1700px width
+  const nameFontSize = Math.min(240, Math.floor(3400 / (name.length * 0.65)));
   const poLine = data.poNumber ? `<div style="font-size:140px;text-align:center;line-height:1.1;margin-top:20px;">PO: ${data.poNumber}</div>` : '';
   const positionLine = `<div style="font-size:200px;text-align:center;line-height:1.1;margin-top:20px;">${data.copyNum}/${data.totalLabels}</div>`;
   const html = `
     <div style="width:1800px;height:1200px;background:white;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Times New Roman',Times,serif;font-weight:700;">
-      <div style="font-size:240px;text-align:center;line-height:1.1;max-width:1700px;word-wrap:break-word;">${name}</div>
+      <div style="font-size:${nameFontSize}px;text-align:center;line-height:1.1;max-width:1700px;word-wrap:break-word;overflow-wrap:break-word;">${name}</div>
       <div style="font-size:240px;text-align:center;line-height:1.1;margin-top:20px;">${data.invoiceNumber}</div>
       ${positionLine}
       ${poLine}
