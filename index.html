@@ -455,20 +455,13 @@ async function drawProductLabel(data) {
 }
 
 async function drawCustomerLabel(data) {
-  const name = data.customerName.toUpperCase();
-  // Scale font size based on name length to prevent overflow in the 1200px-tall container
-  const nameLen = name.length;
-  let nameFontSize;
-  if      (nameLen <= 12) nameFontSize = 240;
-  else if (nameLen <= 18) nameFontSize = 190;
-  else if (nameLen <= 24) nameFontSize = 150;
-  else if (nameLen <= 36) nameFontSize = 110;
-  else                    nameFontSize = 85;
+  const fullName = data.customerName.toUpperCase();
+  const name = fullName.length > 25 ? fullName.slice(0, 25).trimEnd() + '…' : fullName;
   const poLine = data.poNumber ? `<div style="font-size:140px;text-align:center;line-height:1.1;margin-top:20px;">PO: ${data.poNumber}</div>` : '';
   const positionLine = `<div style="font-size:200px;text-align:center;line-height:1.1;margin-top:20px;">${data.copyNum}/${data.totalLabels}</div>`;
   const html = `
     <div style="width:1800px;height:1200px;background:white;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Times New Roman',Times,serif;font-weight:700;">
-      <div style="font-size:${nameFontSize}px;text-align:center;line-height:1.1;max-width:1700px;word-wrap:break-word;overflow-wrap:break-word;">${name}</div>
+      <div style="font-size:240px;text-align:center;line-height:1.1;max-width:1700px;word-wrap:break-word;">${name}</div>
       <div style="font-size:240px;text-align:center;line-height:1.1;margin-top:20px;">${data.invoiceNumber}</div>
       ${positionLine}
       ${poLine}
